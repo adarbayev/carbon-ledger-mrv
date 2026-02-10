@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #059669;
+  --color-primary-hover: #047857;
+
+  --color-danger: #EF4444;
+  --color-danger-hover: #FEF2F2;
+
+  --color-bg-app: #F1F5F9;
+  --color-bg-surface: #FFFFFF;
+
+  --color-text-main: #1E293B;
+  --color-text-muted: #64748B;
+
+  --color-border-light: #E2E8F0;
+
+  --color-warning-bg: #FEF3C7;
+  --color-warning-text: #B45309;
+
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-bg-app text-text-main font-sans overflow-hidden h-screen antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+
+  /* App Shell - Legacy removed */
+
+  /* Components */
+  .btn {
+    @apply font-medium text-sm px-4 py-2 rounded-md transition-all duration-200 cursor-pointer;
+  }
+
+  .btn.primary {
+    @apply bg-primary text-white border border-primary hover:bg-primary-hover;
+  }
+
+  .btn.ghost {
+    @apply bg-transparent text-text-muted border border-transparent hover:text-text-main hover:bg-slate-50;
+  }
+
+  .btn.small {
+    @apply px-2 py-1 text-xs;
+  }
+
+  .danger-hover:hover {
+    color: var(--color-danger) !important;
+    background-color: #FEF2F2 !important;
+  }
+
+  .card {
+    @apply bg-white border border-border-light rounded-lg p-lg mb-lg shadow-sm;
+  }
+
+  .badge {
+    @apply text-xs font-semibold px-2 py-[2px] rounded-full uppercase;
+  }
+
+  .badge.warning {
+    @apply bg-warning-bg text-warning-text;
+  }
+
+  .badge.success {
+    @apply bg-green-100 text-green-700;
+  }
+
+  .badge.neutral {
+    @apply bg-slate-100 text-slate-600;
+  }
+
+  /* Forms */
+  .input-cell {
+    @apply w-full bg-transparent border-none p-0 focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary focus:p-1 focus:rounded;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  input[type="month"],
+  select {
+    @apply w-full p-2 border border-border-light rounded font-sans text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+  }
+
+  /* Tables */
+  table {
+    @apply w-full border-collapse text-sm;
+  }
+
+  th {
+    @apply text-left p-2 border-b-2 border-border-light text-text-muted font-semibold;
+  }
+
+  td {
+    @apply p-2 border-b border-border-light align-middle;
+  }
+
+  tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .row-muted {
+    @apply bg-slate-50 text-text-muted;
+  }
+
+  .row-muted input {
+    @apply text-text-muted bg-slate-50;
+  }
+
+  /* Utils */
+  .nav-tab {
+    @apply bg-none border-none font-[inherit] text-sm font-medium text-text-muted cursor-pointer pb-1 border-b-2 border-transparent transition-all;
+  }
+
+  .nav-tab:hover {
+    @apply text-text-main;
+  }
+
+  .nav-tab.active {
+    @apply text-primary border-primary;
+  }
+
+  .section-title {
+    @apply text-2xl font-semibold mb-lg;
+  }
+
+  .divider {
+    @apply h-px bg-border-light;
+  }
+
+  .stat-row {
+    @apply flex justify-between text-sm text-text-main mb-sm;
+  }
+
+  .stat-row.total {
+    @apply font-bold mt-md pt-sm border-t border-border-light;
+  }
+
+  /* Toggle Switch */
+  .switch {
+    @apply relative inline-block w-9 h-5;
+  }
+
+  .switch input {
+    @apply opacity-0 w-0 h-0;
+  }
+
+  .slider {
+    @apply absolute cursor-pointer inset-0 bg-slate-300 transition-all duration-300;
+  }
+
+  .slider:before {
+    @apply absolute content-[''] h-4 w-4 left-[2px] bottom-[2px] bg-white transition-all duration-300;
+  }
+
+  .slider.round {
+    @apply rounded-full;
+  }
+
+  .slider.round:before {
+    @apply rounded-full;
+  }
+
+  input:checked+.slider {
+    @apply bg-primary;
+  }
+
+  input:checked+.slider:before {
+    @apply translate-x-4;
+  }
+
+  /* Stack Bar */
+  .stack-bar {
+    @apply flex w-full h-6 bg-slate-200 rounded overflow-hidden mt-2;
+  }
+
+  .stack-segment {
+    @apply h-full flex items-center justify-center text-xs text-white font-semibold transition-all duration-300;
+  }
+
+  .stack-segment.direct {
+    @apply bg-primary;
+  }
+
+  .stack-segment.indirect {
+    @apply bg-blue-500;
+  }
+
+  /* Toasts */
+  .toast-container {
+    @apply fixed top-5 right-5 z-50;
+  }
+
+  .toast {
+    @apply bg-slate-800 text-white py-3 px-6 rounded-md shadow-lg flex items-center gap-3 animate-[slideIn_0.3s_ease-out];
+  }
+
+  .empty-state {
+    @apply text-center text-text-muted p-xl border-2 border-dashed border-border-light rounded-lg;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
