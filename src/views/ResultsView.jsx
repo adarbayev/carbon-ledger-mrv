@@ -1,7 +1,7 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { calcFuelEmissions, calcElecEmissions, getCnCodeInfo } from '../data/referenceData';
-import { compareCertPriceScenarios, calculateCBAMProjection } from '../engine/cbamCalculator';
+import { calculateCBAMProjection } from '../engine/cbamCalculator';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
 import { Calculator, TrendingUp, Info, ShieldCheck } from 'lucide-react';
 
@@ -60,12 +60,11 @@ export default function ResultsView() {
     });
 
 
-    // ─── CBAM Scenario Engine ────────────────────────────────
+    // ─── CBAM: Actual vs Default Comparison ─────────────────────
     const cbam = state.cbamSettings;
     const mainProduct = productResults.find(p => !p.isExcluded);
 
-    const cbamConfig = {
-        basis: cbam.basis,
+    const baseConfig = {
         scope: cbam.scope,
         certPriceScenario: cbam.certPriceScenario,
         alPriceScenario: cbam.alPriceScenario,
@@ -78,26 +77,27 @@ export default function ResultsView() {
         seeIndirect: mainProduct?.seeIndirect || 0,
     };
 
-    // 3-scenario comparison (LOW/MID/HIGH cert prices)
-    const scenarioResults = compareCertPriceScenarios(cbamConfig);
+    // Two projections: Actual (your MRV data) vs Default (EU regulation values)
+    const actualProjection = calculateCBAMProjection({ ...baseConfig, basis: 'ACTUAL' });
+    const defaultProjection = calculateCBAMProjection({ ...baseConfig, basis: 'DEFAULT' });
 
-    // Chart data: grouped bars by year, one bar per scenario
-    const scenarioChartData = scenarioResults[0].projection.rows.map((_, i) => {
-        const row = { year: scenarioResults[0].projection.rows[i].year };
-        scenarioResults.forEach(s => {
-            row[s.label.includes('Low') ? 'Low' : s.label.includes('Mid') ? 'Mid' : 'High'] = s.projection.rows[i].netCost;
-        });
-        return row;
-    });
+    const savings = defaultProjection.totals.totalNetCost - actualProjection.totals.totalNetCost;
+    const savingsPct = defaultProjection.totals.totalNetCost > 0
+        ? ((savings / defaultProjection.totals.totalNetCost) * 100).toFixed(1)
+        : 0;
 
-    // Selected scenario for the detail table
-    const selectedProjection = calculateCBAMProjection(cbamConfig);
+    // Chart data: Actual vs Default grouped bars by year
+    const comparisonChartData = actualProjection.rows.map((row, i) => ({
+        year: row.year,
+        'Actual (MRV)': row.netCost,
+        'Default (EU Reg.)': defaultProjection.rows[i].netCost,
+    }));
 
     // Emissions breakdown chart data (for existing product chart)
     const chartData = productResults
         .filter(p => !p.isExcluded)
         .map(p => ({
-            name: p.name.length > 15 ? p.name.slice(0, 15) + '…' : p.name,
+            name: p.name.length > 15 ? p.name.slice(0, 15) + '\u2026' : p.name,
             'Direct (Scope 1)': p.ownDirect,
             'Indirect (Scope 2)': p.ownIndirect,
             'Precursors': p.precursorEmissions,
@@ -216,35 +216,54 @@ export default function ResultsView() {
             </div>
 
 
-            {/* ─── CBAM Scenario Dashboard ─── */}
+            {/* ─── CBAM: Actual vs Default Comparison ─── */}
             <div className="card">
                 <div className="flex items-center gap-2 mb-5">
                     <Calculator size={20} className="text-indigo-500" />
-                    <h3 className="text-lg font-semibold text-slate-700">CBAM Scenario Dashboard</h3>
-                    <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full ml-auto">2026–2034</span>
+                    <h3 className="text-lg font-semibold text-slate-700">CBAM Cost Projection</h3>
+                    <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">2026–2034</span>
+                    <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{cbam.goodCategory}</span>
+                    <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{cbam.scope === 'DIRECT_ONLY' ? 'Direct' : 'Direct + Indirect'}</span>
                 </div>
 
+                {/* Savings Banner */}
+                {savings > 0 && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-5 flex items-center gap-3">
+                        <ShieldCheck size={20} className="text-emerald-600 shrink-0" />
+                        <div>
+                            <span className="text-sm font-semibold text-emerald-700">
+                                MRV saves €{(savings / 1e6).toFixed(1)}M ({savingsPct}%)
+                            </span>
+                            <span className="text-xs text-emerald-600 ml-2">
+                                over 9 years vs. EU default values
+                            </span>
+                        </div>
+                    </div>
+                )}
+                {savings <= 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5 flex items-center gap-3">
+                        <Info size={20} className="text-amber-600 shrink-0" />
+                        <div>
+                            <span className="text-sm font-semibold text-amber-700">
+                                Actual emissions exceed EU defaults
+                            </span>
+                            <span className="text-xs text-amber-600 ml-2">
+                                — EU default values would be lower cost by €{(Math.abs(savings) / 1e6).toFixed(1)}M
+                            </span>
+                        </div>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-12 gap-6">
-                    {/* Controls Panel (left) */}
-                    <div className="col-span-4 space-y-3">
-                        <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Emission Basis</label>
-                            <select value={cbam.basis} className="input-cell text-sm w-full"
-                                onChange={(e) => dispatch({ type: 'UPDATE_CBAM', payload: { field: 'basis', value: e.target.value } })}>
-                                <option value="ACTUAL">Actual (from MRV data)</option>
-                                <option value="DEFAULT">Default (EU regulation values)</option>
-                            </select>
+                    {/* Controls (left, simplified) */}
+                    <div className="col-span-3 space-y-3">
+                        <div className="pt-2 border-t-2 border-blue-200 bg-blue-50/30 rounded-lg p-3">
+                            <label className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide mb-1 block">📦 Import Volume (t/year)</label>
+                            <input type="number" value={cbam.importedQty} className="input-highlight w-full"
+                                onChange={(e) => dispatch({ type: 'UPDATE_CBAM', payload: { field: 'importedQty', value: parseFloat(e.target.value) || 0 } })} />
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Scope</label>
-                            <select value={cbam.scope} className="input-cell text-sm w-full"
-                                onChange={(e) => dispatch({ type: 'UPDATE_CBAM', payload: { field: 'scope', value: e.target.value } })}>
-                                <option value="DIRECT_ONLY">Direct Only (Scope 1)</option>
-                                <option value="TOTAL">Total (Scope 1 + 2)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Certificate Price Scenario</label>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">EUA Price Scenario</label>
                             <select value={cbam.certPriceScenario} className="input-cell text-sm w-full"
                                 onChange={(e) => dispatch({ type: 'UPDATE_CBAM', payload: { field: 'certPriceScenario', value: e.target.value } })}>
                                 <option value="LOW">Low</option>
@@ -253,7 +272,7 @@ export default function ResultsView() {
                             </select>
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">KZ Carbon Credits</label>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">KZ ETS Credits</label>
                             <div className="flex gap-2">
                                 <select value={cbam.carbonCreditEligible ? 'Y' : 'N'} className="input-cell text-sm flex-1"
                                     onChange={(e) => dispatch({ type: 'UPDATE_CBAM', payload: { field: 'carbonCreditEligible', value: e.target.value === 'Y' } })}>
@@ -270,63 +289,50 @@ export default function ResultsView() {
                                 </select>
                             </div>
                         </div>
-                        <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Al Price Scenario</label>
-                            <select value={cbam.alPriceScenario} className="input-cell text-sm w-full"
-                                onChange={(e) => dispatch({ type: 'UPDATE_CBAM', payload: { field: 'alPriceScenario', value: e.target.value } })}>
-                                <option value="LOW">Low</option>
-                                <option value="MID">Mid</option>
-                                <option value="HIGH">High</option>
-                            </select>
-                        </div>
-                        <div className="pt-3 mt-2 border-t-2 border-blue-200 bg-blue-50/30 rounded-lg p-3 -mx-1">
-                            <label className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide mb-1 block">📦 Annual Import Volume (tonnes)</label>
-                            <input type="number" value={cbam.importedQty} className="input-highlight w-full"
-                                onChange={(e) => dispatch({ type: 'UPDATE_CBAM', payload: { field: 'importedQty', value: parseFloat(e.target.value) || 0 } })} />
-                            <p className="text-[10px] text-slate-400 mt-1">Total quantity imported into the EU per year</p>
-                        </div>
-                        <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Good Category</label>
-                            <select value={cbam.goodCategory} className="input-cell text-sm w-full"
-                                onChange={(e) => dispatch({ type: 'UPDATE_CBAM', payload: { field: 'goodCategory', value: e.target.value } })}>
-                                <option value="Aluminium">Aluminium</option>
-                                <option value="Cement">Cement</option>
-                                <option value="Fertilisers">Fertilisers</option>
-                                <option value="Iron &amp; Steel">Iron &amp; Steel</option>
-                                <option value="Hydrogen">Hydrogen</option>
-                            </select>
-                            <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                                <span className="inline-block w-2 h-2 rounded-full bg-green-400"></span>
-                                Auto-set from product CN code
-                            </div>
+
+                        {/* Auto-detected info */}
+                        <div className="bg-slate-50 rounded-lg p-3 space-y-1.5 text-[11px] text-slate-500">
+                            <div className="font-semibold text-slate-600 text-xs mb-1.5">Auto-detected</div>
+                            <div className="flex justify-between"><span>Sector</span><span className="font-medium text-slate-700">{cbam.goodCategory}</span></div>
+                            <div className="flex justify-between"><span>Scope</span><span className="font-medium text-slate-700">{cbam.scope === 'DIRECT_ONLY' ? 'Direct only' : 'Direct + Indirect'}</span></div>
+                            <div className="flex justify-between"><span>SEE (actual)</span><span className="font-mono text-slate-700">{(mainProduct?.seeDirect + mainProduct?.seeIndirect || 0).toFixed(3)}</span></div>
                         </div>
                     </div>
 
-                    {/* Right: Chart + Summary */}
-                    <div className="col-span-8 space-y-4">
-                        {/* Scenario Summary Cards */}
-                        <div className="grid grid-cols-3 gap-3">
-                            {scenarioResults.map(s => (
-                                <div key={s.name}
-                                    className={`rounded-lg p-3 border-2 ${s.name === 'mid' ? 'border-amber-300 bg-amber-50' :
-                                        s.name === 'low' ? 'border-green-300 bg-green-50' :
-                                            'border-red-300 bg-red-50'
-                                        }`}>
-                                    <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: s.color }}>{s.label}</div>
-                                    <div className="text-xl font-bold mt-1" style={{ color: s.color }}>
-                                        €{(s.projection.totals.totalNetCost / 1e6).toFixed(1)}M
-                                    </div>
-                                    <div className="text-[10px] text-slate-500 mt-1">
-                                        9-year total · KZ ETS: −€{(s.projection.totals.totalKzEtsDeduction / 1e6).toFixed(1)}M
-                                    </div>
+                    {/* Right: Summary + Chart */}
+                    <div className="col-span-9 space-y-4">
+                        {/* Two-card comparison */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="rounded-lg p-4 border-2 border-blue-300 bg-blue-50">
+                                <div className="text-xs font-semibold uppercase tracking-wide text-blue-600 mb-1">✓ Actual (your MRV data)</div>
+                                <div className="text-2xl font-bold text-blue-700">
+                                    €{(actualProjection.totals.totalNetCost / 1e6).toFixed(1)}M
                                 </div>
-                            ))}
+                                <div className="text-[10px] text-slate-500 mt-1">
+                                    9-year net cost · KZ ETS: −€{(actualProjection.totals.totalKzEtsDeduction / 1e6).toFixed(1)}M
+                                </div>
+                                <div className="text-[10px] text-blue-500 mt-1 font-mono">
+                                    SEE: {(mainProduct?.seeDirect || 0).toFixed(3)} D + {(mainProduct?.seeIndirect || 0).toFixed(3)} I = {((mainProduct?.seeDirect || 0) + (mainProduct?.seeIndirect || 0)).toFixed(3)} tCO₂/t
+                                </div>
+                            </div>
+                            <div className="rounded-lg p-4 border-2 border-slate-300 bg-slate-50">
+                                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Default (EU regulation)</div>
+                                <div className="text-2xl font-bold text-slate-600">
+                                    €{(defaultProjection.totals.totalNetCost / 1e6).toFixed(1)}M
+                                </div>
+                                <div className="text-[10px] text-slate-500 mt-1">
+                                    9-year net cost · KZ ETS: −€{(defaultProjection.totals.totalKzEtsDeduction / 1e6).toFixed(1)}M
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-1 font-mono">
+                                    Uses EU default emission values for {cbam.goodCategory}
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Scenario Comparison Chart */}
+                        {/* Comparison Chart */}
                         <div className="h-[280px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={scenarioChartData} margin={{ left: 10, right: 10, top: 5, bottom: 5 }}>
+                                <BarChart data={comparisonChartData} margin={{ left: 10, right: 10, top: 5, bottom: 5 }}>
                                     <XAxis dataKey="year" tick={{ fontSize: 11 }} />
                                     <YAxis tick={{ fontSize: 10 }}
                                         tickFormatter={(v) => v >= 1e6 ? `€${(v / 1e6).toFixed(0)}M` : `€${(v / 1e3).toFixed(0)}K`} />
@@ -334,19 +340,18 @@ export default function ResultsView() {
                                         formatter={(value) => [`€${Math.round(value).toLocaleString()}`, undefined]}
                                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: 12 }} />
                                     <Legend wrapperStyle={{ fontSize: 11 }} />
-                                    <Bar dataKey="Low" fill="#22c55e" radius={[2, 2, 0, 0]} />
-                                    <Bar dataKey="Mid" fill="#f59e0b" radius={[2, 2, 0, 0]} />
-                                    <Bar dataKey="High" fill="#ef4444" radius={[2, 2, 0, 0]} />
+                                    <Bar dataKey="Actual (MRV)" fill="#3b82f6" radius={[3, 3, 0, 0]} />
+                                    <Bar dataKey="Default (EU Reg.)" fill="#94a3b8" radius={[3, 3, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
                 </div>
 
-                {/* Projection Table */}
+                {/* Projection Table — Actual basis */}
                 <div className="mt-6">
                     <h4 className="text-sm font-semibold text-slate-600 mb-3">
-                        Projection Detail — {cbam.certPriceScenario} Scenario
+                        Projection Detail — Actual Basis ({cbam.certPriceScenario} EUA Price)
                     </h4>
                     <div className="overflow-x-auto">
                         <table className="text-xs">
@@ -369,7 +374,7 @@ export default function ResultsView() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {selectedProjection.rows.map(r => (
+                                {actualProjection.rows.map(r => (
                                     <tr key={r.year}>
                                         <td className="font-semibold">{r.year}</td>
                                         <td className="text-right font-mono">{r.importQty.toLocaleString()}</td>
@@ -392,9 +397,9 @@ export default function ResultsView() {
                                 <tr className="border-t-2 border-slate-300 font-bold">
                                     <td>Total</td>
                                     <td colSpan={7}></td>
-                                    <td className="text-right font-mono">€{selectedProjection.totals.totalGrossCost.toLocaleString()}</td>
-                                    <td className="text-right font-mono text-green-600">−€{selectedProjection.totals.totalKzEtsDeduction.toLocaleString()}</td>
-                                    <td className="text-right font-mono text-indigo-700">€{selectedProjection.totals.totalNetCost.toLocaleString()}</td>
+                                    <td className="text-right font-mono">€{actualProjection.totals.totalGrossCost.toLocaleString()}</td>
+                                    <td className="text-right font-mono text-green-600">−€{actualProjection.totals.totalKzEtsDeduction.toLocaleString()}</td>
+                                    <td className="text-right font-mono text-indigo-700">€{actualProjection.totals.totalNetCost.toLocaleString()}</td>
                                     <td colSpan={3}></td>
                                 </tr>
                             </tfoot>

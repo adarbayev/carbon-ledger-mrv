@@ -52,6 +52,14 @@ export default function AllocationView() {
 
                         {state.products.length > 0 ? (
                             <div className="space-y-3">
+                                {/* Column Headers */}
+                                <div className="grid grid-cols-[1fr_160px_120px_60px_40px] gap-3 px-3">
+                                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Product Name</span>
+                                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">CN Code</span>
+                                    <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide">Output (t)</span>
+                                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide text-center">Residue</span>
+                                    <span></span>
+                                </div>
                                 {state.products.map(p => {
                                     const cnInfo = getCnCodeInfo(p.cnCode);
                                     const isComplex = cnInfo?.isComplex || false;
@@ -62,7 +70,7 @@ export default function AllocationView() {
                                         <div key={p.id} className="border border-slate-200 rounded-lg overflow-hidden">
                                             {/* Product Row */}
                                             <div className="p-3 bg-white">
-                                                <div className="grid grid-cols-[1fr_160px_140px_80px_40px] gap-3 items-start">
+                                                <div className="grid grid-cols-[1fr_160px_120px_60px_40px] gap-3 items-center">
                                                     <input type="text" value={p.name} className="input-cell font-medium"
                                                         onChange={(e) => dispatch({ type: 'UPDATE_PRODUCT', payload: { id: p.id, field: 'name', value: e.target.value } })} />
 
@@ -87,14 +95,11 @@ export default function AllocationView() {
                                                     </div>
 
                                                     {/* Production Output — highlighted */}
-                                                    <div>
-                                                        <label className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide mb-1 block">Output (t)</label>
-                                                        <input type="number" value={p.quantity} className="input-highlight"
-                                                            placeholder="0"
-                                                            onChange={(e) => dispatch({ type: 'UPDATE_PRODUCT', payload: { id: p.id, field: 'quantity', value: e.target.value } })} />
-                                                    </div>
+                                                    <input type="number" value={p.quantity} className="input-highlight"
+                                                        placeholder="0"
+                                                        onChange={(e) => dispatch({ type: 'UPDATE_PRODUCT', payload: { id: p.id, field: 'quantity', value: e.target.value } })} />
 
-                                                    <div className="flex items-center justify-center pt-5">
+                                                    <div className="flex items-center justify-center">
                                                         <label className="switch" style={{ transform: 'scale(0.8)' }}>
                                                             <input type="checkbox" checked={p.isResidue}
                                                                 onChange={(e) => dispatch({ type: 'UPDATE_PRODUCT', payload: { id: p.id, field: 'isResidue', value: e.target.checked } })} />
@@ -102,9 +107,7 @@ export default function AllocationView() {
                                                         </label>
                                                     </div>
 
-                                                    <div className="pt-5">
-                                                        <button className="btn ghost small danger-hover" onClick={() => dispatch({ type: 'DELETE_PRODUCT', payload: p.id })}>&times;</button>
-                                                    </div>
+                                                    <button className="btn ghost small danger-hover" onClick={() => dispatch({ type: 'DELETE_PRODUCT', payload: p.id })}>&times;</button>
                                                 </div>
 
                                                 {/* Badges row */}
