@@ -10,7 +10,7 @@ export default function AllocationView() {
     const [cnSearch, setCnSearch] = useState({});
 
     // --- Calculations ---
-    const totalDirect = Math.round(state.activity.fuels.reduce((sum, f) => sum + calcFuelEmissions(f), 0));
+    const totalDirect = Math.round(state.activity.fuels.reduce((sum, f) => sum + calcFuelEmissions(f).total, 0));
     const totalIndirect = Math.round(state.activity.electricity.reduce((sum, e) => sum + calcElecEmissions(e), 0));
 
     const treatResidueAsWaste = state.allocationSettings.treatResidueAsWaste;

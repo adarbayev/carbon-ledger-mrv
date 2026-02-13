@@ -7,7 +7,7 @@ export default function ActivityView() {
     const { state, dispatch } = useApp();
 
     // Totals
-    const totalFuelEmissions = state.activity.fuels.reduce((sum, f) => sum + calcFuelEmissions(f), 0);
+    const totalFuelEmissions = state.activity.fuels.reduce((sum, f) => sum + calcFuelEmissions(f).total, 0);
     const totalElecEmissions = state.activity.electricity.reduce((sum, e) => sum + calcElecEmissions(e), 0);
 
     const handleGridCountryChange = (id, countryCode) => {
@@ -91,10 +91,10 @@ export default function ActivityView() {
                                                     <input type="number" value={f.customEf} className="input-cell text-xs w-16"
                                                         placeholder="EF"
                                                         onChange={(e) => dispatch({ type: 'UPDATE_FUEL', payload: { id: f.id, field: 'customEf', value: e.target.value } })} />
-                                                ) : fuelType?.ef || '—'}
+                                                ) : fuelType?.efCO2 || '—'}
                                             </td>
                                             <td className="font-mono font-semibold text-blue-700 text-right">
-                                                {emissions.toFixed(1)}
+                                                {emissions.total.toFixed(1)}
                                             </td>
                                             <td>
                                                 <input type="text" value={f.evidence} className="input-cell text-xs"

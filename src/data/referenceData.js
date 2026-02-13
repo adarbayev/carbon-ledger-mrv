@@ -1,34 +1,46 @@
 // ═══════════════════════════════════════════════════════════════
 //  Reference Data for Carbon Ledger MRV
-//  Sources: IPCC 2006, EU CBAM Reg. 2023/956, IEA
+//  Sources: IPCC 2006, EU CBAM Reg. 2023/956, EU Reg. 2025/2547, IEA
 // ═══════════════════════════════════════════════════════════════
 
+// ─── Global Warming Potentials (EU Reg 2025/2547, Annex II, Table 6) ──
+export const GWP = {
+    CO2: 1,
+    N2O: 265,       // t CO₂e per t N₂O
+    CF4: 6630,      // t CO₂e per t CF₄
+    C2F6: 11100,    // t CO₂e per t C₂F₆
+};
+
 // ─── Fuel Types (IPCC 2006 Guidelines, Vol. 2, Ch. 2) ────────
-// EF = kg CO₂ / GJ  (equivalent to tCO₂/TJ)
-// NCV = GJ / tonne
-// Calculation: tCO₂ = mass_tonnes × NCV × EF / 1000
+// efCO2 = t CO₂ / TJ  (same as kg CO₂ / GJ)
+// NCV   = GJ / tonne (= TJ / Gg)
+// Calculation: tCO₂ = mass_tonnes × NCV × efCO2 / 1000
 export const FUEL_TYPES = [
-    { id: 'natural_gas', name: 'Natural Gas', ncv: 48.0, ef: 56.1, defaultUnit: 't' },
-    { id: 'diesel', name: 'Diesel / Gas Oil', ncv: 43.0, ef: 74.1, defaultUnit: 't' },
-    { id: 'hard_coal', name: 'Hard Coal', ncv: 25.8, ef: 94.6, defaultUnit: 't' },
-    { id: 'coke', name: 'Coke', ncv: 28.2, ef: 107.0, defaultUnit: 't' },
-    { id: 'lpg', name: 'LPG', ncv: 47.3, ef: 63.1, defaultUnit: 't' },
-    { id: 'fuel_oil', name: 'Heavy Fuel Oil', ncv: 40.4, ef: 77.4, defaultUnit: 't' },
-    { id: 'pet_coke', name: 'Petroleum Coke', ncv: 32.5, ef: 97.5, defaultUnit: 't' },
-    { id: 'biomass_wood', name: 'Wood / Biomass', ncv: 15.6, ef: 112.0, defaultUnit: 't' },
-    { id: 'other', name: 'Other (custom)', ncv: 0, ef: 0, defaultUnit: 't' },
+    { id: 'natural_gas', name: 'Natural Gas', ncv: 48.0, efCO2: 56.1, defaultUnit: 't' },
+    { id: 'diesel', name: 'Diesel / Gas Oil', ncv: 43.0, efCO2: 74.1, defaultUnit: 't' },
+    { id: 'hard_coal', name: 'Hard Coal', ncv: 25.8, efCO2: 94.6, defaultUnit: 't' },
+    { id: 'coke', name: 'Coke', ncv: 28.2, efCO2: 107.0, defaultUnit: 't' },
+    { id: 'lpg', name: 'LPG', ncv: 47.3, efCO2: 63.1, defaultUnit: 't' },
+    { id: 'fuel_oil', name: 'Heavy Fuel Oil', ncv: 40.4, efCO2: 77.4, defaultUnit: 't' },
+    { id: 'pet_coke', name: 'Petroleum Coke', ncv: 32.5, efCO2: 97.5, defaultUnit: 't' },
+    { id: 'biomass_wood', name: 'Wood / Biomass', ncv: 15.6, efCO2: 112.0, defaultUnit: 't' },
+    { id: 'other', name: 'Other (custom)', ncv: 0, efCO2: 0, defaultUnit: 't' },
 ];
 
 // Helper: calculate tCO₂ from fuel entry
+// Returns { co2: number, total: number } — total = co2 for now
+// (multi-gas CH₄/N₂O per-fuel to be added in future phase)
 export function calcFuelEmissions(fuelEntry) {
     const fuelType = FUEL_TYPES.find(f => f.id === fuelEntry.fuelTypeId);
+    let co2;
     if (!fuelType || fuelType.id === 'other') {
-        // For 'other', user must supply custom NCV and EF via overrides
         const ncv = fuelEntry.customNcv || 0;
         const ef = fuelEntry.customEf || 0;
-        return (parseFloat(fuelEntry.quantity) || 0) * ncv * ef / 1000;
+        co2 = (parseFloat(fuelEntry.quantity) || 0) * ncv * ef / 1000;
+    } else {
+        co2 = (parseFloat(fuelEntry.quantity) || 0) * fuelType.ncv * fuelType.efCO2 / 1000;
     }
-    return (parseFloat(fuelEntry.quantity) || 0) * fuelType.ncv * fuelType.ef / 1000;
+    return { co2, total: co2 };
 }
 
 // Helper: calculate tCO₂ from electricity entry

@@ -48,13 +48,15 @@ const initialState = {
         treatResidueAsWaste: true
     },
     cbamSettings: {
-        basis: "ACTUAL",
-        scope: "TOTAL",
-        priceRef: 80,
-        payableShare: 100,
-        exportedQty: 24000,
-        carbonPricePaid: 0,
-        carbonPriceCurrency: "EUR"
+        basis: "ACTUAL",               // ACTUAL | DEFAULT
+        scope: "DIRECT_ONLY",          // DIRECT_ONLY | TOTAL
+        certPriceScenario: "MID",      // LOW | MID | HIGH
+        alPriceScenario: "MID",        // LOW | MID | HIGH
+        carbonCreditEligible: true,    // KZ ETS deduction eligible?
+        carbonCreditScenario: "HIGH",  // NONE | LOW | MID | HIGH
+        importedQty: 110000,           // Annual import volume (tonnes)
+        cnCode: "7601",                // CN code for default value lookup
+        goodCategory: "Aluminium",     // Sector for scope/markup rules
     },
     isDirty: false,
     activeTab: "boundaries"
