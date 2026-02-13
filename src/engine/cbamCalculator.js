@@ -142,7 +142,15 @@ export function calculateCBAMProjection(config) {
         totalNetCost: rows.reduce((s, r) => s + r.netCost, 0),
     };
 
-    return { rows, totals };
+    return {
+        rows,
+        totals,
+        metadata: {
+            defaultEntry,
+            effectiveScope,
+            goodCategory
+        }
+    };
 }
 
 /**

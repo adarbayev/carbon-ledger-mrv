@@ -74,24 +74,15 @@ export default function AllocationView() {
                                                     <input type="text" value={p.name} className="input-cell font-medium"
                                                         onChange={(e) => dispatch({ type: 'UPDATE_PRODUCT', payload: { id: p.id, field: 'name', value: e.target.value } })} />
 
-                                                    {/* CN Code Selector */}
+                                                    {/* CN Code Selector (Flexible) */}
                                                     <div className="relative">
-                                                        <select
+                                                        <input
+                                                            list="cn-codes-list"
                                                             value={p.cnCode}
                                                             className="input-cell text-xs w-full"
+                                                            placeholder="Search or enter CN code..."
                                                             onChange={(e) => dispatch({ type: 'UPDATE_PRODUCT', payload: { id: p.id, field: 'cnCode', value: e.target.value } })}
-                                                        >
-                                                            <option value="">Select CN Code...</option>
-                                                            {getSectors().map(sector => (
-                                                                <optgroup key={sector} label={sector}>
-                                                                    {CBAM_CN_CODES.filter(c => c.sector === sector).map(c => (
-                                                                        <option key={c.code} value={c.code}>
-                                                                            {c.code} — {c.name}
-                                                                        </option>
-                                                                    ))}
-                                                                </optgroup>
-                                                            ))}
-                                                        </select>
+                                                        />
                                                     </div>
 
                                                     {/* Production Output — highlighted */}
@@ -112,11 +103,16 @@ export default function AllocationView() {
 
                                                 {/* Badges row */}
                                                 <div className="flex items-center gap-2 mt-2">
-                                                    {cnInfo && (
+                                                    {cnInfo ? (
                                                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 uppercase">
                                                             {cnInfo.sector}
                                                         </span>
+                                                    ) : p.cnCode && (
+                                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 uppercase">
+                                                            Custom / Other
+                                                        </span>
                                                     )}
+                                                    {/* ... remaining badges ... */}
                                                     {cnInfo && (
                                                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase ${isComplex ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'}`}>
                                                             {isComplex ? 'Complex Good' : 'Simple Good'}
@@ -125,7 +121,7 @@ export default function AllocationView() {
                                                     {p.isResidue && (
                                                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 uppercase">Residue</span>
                                                     )}
-                                                    {isComplex && (
+                                                    {(isComplex || !cnInfo) && (
                                                         <button
                                                             onClick={() => toggleExpand(p.id)}
                                                             className="ml-auto flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-medium"
@@ -137,8 +133,8 @@ export default function AllocationView() {
                                                 </div>
                                             </div>
 
-                                            {/* Precursors (only for complex goods) */}
-                                            {isComplex && isExpanded && (
+                                            {/* Precursors (for complex goods OR custom goods) */}
+                                            {(isComplex || (isExpanded && !cnInfo)) && isExpanded && (
                                                 <div className="bg-slate-50 border-t border-slate-200 p-3">
                                                     <div className="flex items-center justify-between mb-2">
                                                         <span className="text-xs font-semibold text-slate-500 uppercase">Precursor Inputs</span>
@@ -169,13 +165,13 @@ export default function AllocationView() {
                                                                                 onChange={(e) => dispatch({ type: 'UPDATE_PRECURSOR', payload: { productId: p.id, precursorId: pc.id, field: 'name', value: e.target.value } })} />
                                                                         </td>
                                                                         <td className="p-1">
-                                                                            <select value={pc.cnCode} className="input-cell text-xs"
-                                                                                onChange={(e) => dispatch({ type: 'UPDATE_PRECURSOR', payload: { productId: p.id, precursorId: pc.id, field: 'cnCode', value: e.target.value } })}>
-                                                                                <option value="">—</option>
-                                                                                {CBAM_CN_CODES.filter(c => !c.isComplex).map(c => (
-                                                                                    <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
-                                                                                ))}
-                                                                            </select>
+                                                                            <input
+                                                                                list="cn-codes-list"
+                                                                                value={pc.cnCode}
+                                                                                className="input-cell text-xs w-full"
+                                                                                placeholder="CN code..."
+                                                                                onChange={(e) => dispatch({ type: 'UPDATE_PRECURSOR', payload: { productId: p.id, precursorId: pc.id, field: 'cnCode', value: e.target.value } })}
+                                                                            />
                                                                         </td>
                                                                         <td className="p-1">
                                                                             <input type="number" step="0.01" value={pc.mass} className="input-cell text-xs font-mono text-right"
@@ -324,6 +320,17 @@ export default function AllocationView() {
                     </div>
                 </div>
             </div>
+
+            {/* Datalist for flexible CN Code entry */}
+            <datalist id="cn-codes-list">
+                {getSectors().map(sector => (
+                    <React.Fragment key={sector}>
+                        {CBAM_CN_CODES.filter(c => c.sector === sector).map(c => (
+                            <option key={c.code} value={c.code}>{c.name} ({sector})</option>
+                        ))}
+                    </React.Fragment>
+                ))}
+            </datalist>
         </div>
     );
 }

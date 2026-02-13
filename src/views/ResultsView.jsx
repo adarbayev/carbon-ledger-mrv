@@ -308,11 +308,16 @@ export default function ResultsView() {
                                 <div className="text-2xl font-bold text-blue-700">
                                     €{(actualProjection.totals.totalNetCost / 1e6).toFixed(1)}M
                                 </div>
-                                <div className="text-[10px] text-slate-500 mt-1">
+                                <div className="text-[10px] text-slate-500 mt-1 mb-2">
                                     9-year net cost · KZ ETS: −€{(actualProjection.totals.totalKzEtsDeduction / 1e6).toFixed(1)}M
                                 </div>
-                                <div className="text-[10px] text-blue-500 mt-1 font-mono">
-                                    SEE: {(mainProduct?.seeDirect || 0).toFixed(3)} D + {(mainProduct?.seeIndirect || 0).toFixed(3)} I = {((mainProduct?.seeDirect || 0) + (mainProduct?.seeIndirect || 0)).toFixed(3)} tCO₂/t
+                                <div className="text-[10px] text-blue-800 mt-1 font-mono bg-blue-100/50 p-2 rounded">
+                                    <div className="flex justify-between"><span>Direct:</span><span>{(mainProduct?.seeDirect || 0).toFixed(3)}</span></div>
+                                    <div className="flex justify-between"><span>Indirect:</span><span>{(mainProduct?.seeIndirect || 0).toFixed(3)}</span></div>
+                                    <div className="pt-1 mt-1 border-t border-blue-200 font-bold flex justify-between">
+                                        <span>Total SEE:</span>
+                                        <span>{((mainProduct?.seeDirect || 0) + (mainProduct?.seeIndirect || 0)).toFixed(3)} tCO₂/t</span>
+                                    </div>
                                 </div>
                             </div>
                             <div className="rounded-lg p-4 border-2 border-slate-300 bg-slate-50">
@@ -320,11 +325,28 @@ export default function ResultsView() {
                                 <div className="text-2xl font-bold text-slate-600">
                                     €{(defaultProjection.totals.totalNetCost / 1e6).toFixed(1)}M
                                 </div>
-                                <div className="text-[10px] text-slate-500 mt-1">
+                                <div className="text-[10px] text-slate-500 mt-1 mb-2">
                                     9-year net cost · KZ ETS: −€{(defaultProjection.totals.totalKzEtsDeduction / 1e6).toFixed(1)}M
                                 </div>
-                                <div className="text-[10px] text-slate-400 mt-1 font-mono">
-                                    Uses EU default emission values for {cbam.goodCategory}
+                                <div className="text-[10px] text-slate-600 mt-1 font-mono bg-slate-100 p-2 rounded">
+                                    <div className="flex justify-between">
+                                        <span>Base Default:</span>
+                                        <span className="font-semibold">
+                                            {defaultProjection.metadata.defaultEntry
+                                                ? (defaultProjection.metadata.effectiveScope === 'DIRECT_ONLY'
+                                                    ? defaultProjection.metadata.defaultEntry.direct
+                                                    : (defaultProjection.metadata.defaultEntry.total || defaultProjection.metadata.defaultEntry.direct)).toFixed(3)
+                                                : 'N/A'}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Markup (2026):</span>
+                                        <span className="text-red-500">+{((defaultProjection.rows[0]?.markup || 0) * 100).toFixed(0)}%</span>
+                                    </div>
+                                    <div className="pt-1 mt-1 border-t border-slate-200 font-bold flex justify-between">
+                                        <span>Used Intensity:</span>
+                                        <span>{(defaultProjection.rows[0]?.intensity || 0).toFixed(3)} tCO₂/t</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
