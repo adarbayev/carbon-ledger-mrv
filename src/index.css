@@ -82,7 +82,16 @@
 
   /* Forms */
   .input-cell {
-    @apply w-full bg-transparent border-none p-0 focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary focus:p-1 focus:rounded;
+    @apply w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 
+           focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary focus:border-transparent
+           transition-all duration-150;
+  }
+
+  .input-highlight {
+    @apply w-full bg-blue-50 border-2 border-blue-200 rounded-lg px-3 py-2 
+           font-mono text-base font-semibold text-blue-900
+           focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent
+           transition-all duration-150;
   }
 
   input[type="text"],

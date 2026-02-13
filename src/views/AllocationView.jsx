@@ -62,7 +62,7 @@ export default function AllocationView() {
                                         <div key={p.id} className="border border-slate-200 rounded-lg overflow-hidden">
                                             {/* Product Row */}
                                             <div className="p-3 bg-white">
-                                                <div className="grid grid-cols-[1fr_160px_100px_80px_40px] gap-3 items-center">
+                                                <div className="grid grid-cols-[1fr_160px_140px_80px_40px] gap-3 items-start">
                                                     <input type="text" value={p.name} className="input-cell font-medium"
                                                         onChange={(e) => dispatch({ type: 'UPDATE_PRODUCT', payload: { id: p.id, field: 'name', value: e.target.value } })} />
 
@@ -86,11 +86,15 @@ export default function AllocationView() {
                                                         </select>
                                                     </div>
 
-                                                    <input type="number" value={p.quantity} className="input-cell font-mono"
-                                                        placeholder="Mass (t)"
-                                                        onChange={(e) => dispatch({ type: 'UPDATE_PRODUCT', payload: { id: p.id, field: 'quantity', value: e.target.value } })} />
+                                                    {/* Production Output — highlighted */}
+                                                    <div>
+                                                        <label className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide mb-1 block">Output (t)</label>
+                                                        <input type="number" value={p.quantity} className="input-highlight"
+                                                            placeholder="0"
+                                                            onChange={(e) => dispatch({ type: 'UPDATE_PRODUCT', payload: { id: p.id, field: 'quantity', value: e.target.value } })} />
+                                                    </div>
 
-                                                    <div className="flex items-center justify-center">
+                                                    <div className="flex items-center justify-center pt-5">
                                                         <label className="switch" style={{ transform: 'scale(0.8)' }}>
                                                             <input type="checkbox" checked={p.isResidue}
                                                                 onChange={(e) => dispatch({ type: 'UPDATE_PRODUCT', payload: { id: p.id, field: 'isResidue', value: e.target.checked } })} />
@@ -98,7 +102,9 @@ export default function AllocationView() {
                                                         </label>
                                                     </div>
 
-                                                    <button className="btn ghost small danger-hover" onClick={() => dispatch({ type: 'DELETE_PRODUCT', payload: p.id })}>&times;</button>
+                                                    <div className="pt-5">
+                                                        <button className="btn ghost small danger-hover" onClick={() => dispatch({ type: 'DELETE_PRODUCT', payload: p.id })}>&times;</button>
+                                                    </div>
                                                 </div>
 
                                                 {/* Badges row */}

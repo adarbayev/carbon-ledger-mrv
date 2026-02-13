@@ -279,10 +279,11 @@ export default function ResultsView() {
                                 <option value="HIGH">High</option>
                             </select>
                         </div>
-                        <div className="pt-2 border-t border-slate-200">
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Annual Import Volume (t)</label>
-                            <input type="number" value={cbam.importedQty} className="input-cell font-mono w-full"
+                        <div className="pt-3 mt-2 border-t-2 border-blue-200 bg-blue-50/30 rounded-lg p-3 -mx-1">
+                            <label className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide mb-1 block">📦 Annual Import Volume (tonnes)</label>
+                            <input type="number" value={cbam.importedQty} className="input-highlight w-full"
                                 onChange={(e) => dispatch({ type: 'UPDATE_CBAM', payload: { field: 'importedQty', value: parseFloat(e.target.value) || 0 } })} />
+                            <p className="text-[10px] text-slate-400 mt-1">Total quantity imported into the EU per year</p>
                         </div>
                         <div>
                             <label className="text-xs font-medium text-slate-500 mb-1 block">Good Category</label>
@@ -291,9 +292,13 @@ export default function ResultsView() {
                                 <option value="Aluminium">Aluminium</option>
                                 <option value="Cement">Cement</option>
                                 <option value="Fertilisers">Fertilisers</option>
-                                <option value="Iron & Steel">Iron & Steel</option>
+                                <option value="Iron &amp; Steel">Iron &amp; Steel</option>
                                 <option value="Hydrogen">Hydrogen</option>
                             </select>
+                            <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                                <span className="inline-block w-2 h-2 rounded-full bg-green-400"></span>
+                                Auto-set from product CN code
+                            </div>
                         </div>
                     </div>
 
