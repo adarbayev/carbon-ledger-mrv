@@ -26,11 +26,11 @@ const CompletenessIndicator = () => {
   const hasAllocation = state.products.length > 0;
 
   const steps = [
-    { label: "Installation", done: hasInstallation },
-    { label: "Processes", done: hasProcess },
-    { label: "Activity", done: hasActivity },
-    { label: "Products", done: hasProducts },
-    { label: "Allocation", done: hasAllocation },
+    { label: "Installation details", done: hasInstallation, tab: "boundaries", hint: "Set installation name & country" },
+    { label: "Processes defined", done: hasProcess, tab: "processes", hint: "Add at least one process" },
+    { label: "Activity data entered", done: hasActivity, tab: "activity", hint: "Enter fuel or electricity data" },
+    { label: "Products with CN codes", done: hasProducts, tab: "allocation", hint: "Add products and assign CN codes" },
+    { label: "Allocation configured", done: hasAllocation, tab: "allocation", hint: "Configure product allocation" },
   ];
 
   const completed = steps.filter(s => s.done).length;
@@ -44,31 +44,52 @@ const CompletenessIndicator = () => {
     : "text-blue-700 bg-blue-50 border-blue-200";
 
   return (
-    <div className={`flex items-center gap-3 px-3 py-1.5 rounded-full border ${colorClass} text-sm font-medium transition-colors duration-300`}>
-      <div className="relative w-5 h-5 flex items-center justify-center">
-        {/* Background Circle */}
-        <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-          <path
-            className={isComplete ? "text-emerald-200" : "text-blue-200"}
-            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="4"
-          />
-          {/* Progress Circle */}
-          <path
-            className={isComplete ? "text-emerald-500" : "text-blue-500"}
-            strokeDasharray={`${progress}, 100`}
-            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="4"
-          />
-        </svg>
+    <div className="relative group">
+      <div className={`flex items-center gap-3 px-3 py-1.5 rounded-full border ${colorClass} text-sm font-medium transition-colors duration-300 cursor-help`}>
+        <div className="relative w-5 h-5 flex items-center justify-center">
+          {/* Background Circle */}
+          <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+            <path
+              className={isComplete ? "text-emerald-200" : "text-blue-200"}
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            {/* Progress Circle */}
+            <path
+              className={isComplete ? "text-emerald-500" : "text-blue-500"}
+              strokeDasharray={`${progress}, 100`}
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+          </svg>
+        </div>
+        <span className="tabular-nums">{completed}/{total}</span>
+        <div className={`h-4 w-px mx-1 ${isComplete ? "bg-emerald-200" : "bg-blue-200"}`}></div>
+        <span className="hidden sm:inline-block">Completeness</span>
       </div>
-      <span className="tabular-nums">{completed}/{total}</span>
-      <div className={`h-4 w-px mx-1 ${isComplete ? "bg-emerald-200" : "bg-blue-200"}`}></div>
-      <span className="hidden sm:inline-block">Completeness</span>
+
+      {/* Hover Tooltip */}
+      <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-lg p-3 z-50
+                      opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none">
+        <div className="text-xs font-semibold text-slate-600 mb-2">
+          {isComplete ? '✓ All steps complete' : `${total - completed} step${total - completed > 1 ? 's' : ''} remaining`}
+        </div>
+        <div className="space-y-1.5">
+          {steps.map((s, i) => (
+            <div key={i} className="flex items-start gap-2 text-xs">
+              <span className={s.done ? "text-emerald-500" : "text-slate-300"}>{s.done ? '✓' : '○'}</span>
+              <div>
+                <span className={s.done ? "text-slate-400 line-through" : "text-slate-700 font-medium"}>{s.label}</span>
+                {!s.done && <div className="text-[10px] text-slate-400 mt-0.5">{s.hint}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

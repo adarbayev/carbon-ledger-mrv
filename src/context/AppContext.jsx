@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { getCnCodeInfo } from '../data/referenceData';
+import { getDefaultScope } from '../data/cbamReferenceData';
 
 const AppContext = createContext();
 
@@ -191,16 +193,36 @@ const reducer = (state, action) => {
                 ...state,
                 products: [...state.products, { id: `pr${Date.now()}`, name: "New Product", quantity: 0, isResidue: false, cnCode: "", precursors: [] }]
             });
-        case 'UPDATE_PRODUCT':
+        case 'UPDATE_PRODUCT': {
+            const updatedProducts = state.products.map(p =>
+                p.id === action.payload.id ? {
+                    ...p,
+                    [action.payload.field]: action.payload.field === 'quantity' ? (parseFloat(action.payload.value) || 0) : action.payload.value
+                } : p
+            );
+            // Auto-sync: when CN code changes on main (non-residue) product → update CBAM settings
+            let newCbamSettings = state.cbamSettings;
+            if (action.payload.field === 'cnCode') {
+                const product = updatedProducts.find(p => p.id === action.payload.id);
+                if (product && !product.isResidue) {
+                    const cnInfo = getCnCodeInfo(action.payload.value);
+                    if (cnInfo) {
+                        const sector = cnInfo.sector;
+                        newCbamSettings = {
+                            ...state.cbamSettings,
+                            cnCode: action.payload.value.replace(/\s/g, '').substring(0, 4), // first 4 digits for default lookup
+                            goodCategory: sector,
+                            scope: getDefaultScope(sector),
+                        };
+                    }
+                }
+            }
             return markDirty({
                 ...state,
-                products: state.products.map(p =>
-                    p.id === action.payload.id ? {
-                        ...p,
-                        [action.payload.field]: action.payload.field === 'quantity' ? (parseFloat(action.payload.value) || 0) : action.payload.value
-                    } : p
-                )
+                products: updatedProducts,
+                cbamSettings: newCbamSettings,
             });
+        }
         case 'DELETE_PRODUCT':
             return markDirty({
                 ...state,
