@@ -306,17 +306,16 @@ export const AppProvider = ({ children }) => {
     };
 
     // Persistence Effect
-    useEffect(() => {
-        // Only save if it's not the initial empty load
-        if (state.meta.lastSaved) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        }
-    }, [state.meta.lastSaved, state]); // Verify if this is efficient. Saving on every change? No, only when lastSaved updates? 
-    // Wait, the requirement is "Save button". So update lastSaved triggers this. 
-    // But we also need to save the *content* which changed before the save button was clicked.
+    // Persistence Effect
+    const lastSavedRef = React.useRef(state.meta.lastSaved);
 
-    // Correction: The `save` function dispatches SAVE_STATE which updates `lastSaved`.
-    // Then this useEffect sees the new `lastSaved` and newState, and writes to LS. Perfect.
+    useEffect(() => {
+        // Only save if lastSaved has changed (explicit save action)
+        if (state.meta.lastSaved !== lastSavedRef.current) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            lastSavedRef.current = state.meta.lastSaved;
+        }
+    }, [state.meta.lastSaved, state]);
 
     const reset = () => {
         if (confirm("Reset entire demo?")) {
