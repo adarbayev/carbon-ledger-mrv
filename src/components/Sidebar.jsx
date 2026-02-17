@@ -1,17 +1,22 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { LayoutDashboard, Factory, Zap, PieChart, BarChart3, Settings } from 'lucide-react';
+import { Home, LayoutDashboard, Factory, Zap, PieChart, BarChart3, Settings, ClipboardList, ShieldCheck, FileOutput, FileText } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function Sidebar() {
     const { state, dispatch } = useApp();
 
     const navItems = [
+        { id: 'dashboard', label: 'Dashboard', icon: Home },
         { id: 'boundaries', label: 'Boundaries', icon: LayoutDashboard },
         { id: 'processes', label: 'Processes', icon: Factory },
         { id: 'activity', label: 'Activity', icon: Zap },
         { id: 'allocation', label: 'Allocation', icon: PieChart },
         { id: 'results', label: 'Results', icon: BarChart3 },
+        { id: 'audit', label: 'Audit Trail', icon: ClipboardList },
+        { id: 'qa', label: 'QA Checks', icon: ShieldCheck },
+        { id: 'export', label: 'Export', icon: FileOutput },
+        { id: 'report', label: 'Report', icon: FileText },
     ];
 
     return (

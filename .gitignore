@@ -22,3 +22,19 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# XLSX source data files (generated JS is committed, not the source)
+*.xlsx
+
+# Analysis/dump files from xlsx parsing
+xlsx_*.txt
+xlsx_*.json
+
+# Temporary reader scripts
+read_xlsx*.cjs
+read_xlsx*.mjs
+print_sheet.cjs
+verify_formula_logic.js
+
+# EU regulation PDF (too large for git)
+*.pdf

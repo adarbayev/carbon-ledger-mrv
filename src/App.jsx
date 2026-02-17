@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from './context/AppContext';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Save, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { checkSectorCompleteness } from './data/processTemplates';
 
 // Components
 import Sidebar from './components/Sidebar';
@@ -12,6 +13,13 @@ import ProcessesView from './views/ProcessesView';
 import ActivityView from './views/ActivityView';
 import AllocationView from './views/AllocationView';
 import ResultsView from './views/ResultsView';
+import AuditTrailView from './views/AuditTrailView';
+import QADashboardView from './views/QADashboardView';
+import DashboardView from './views/DashboardView';
+import WorkflowStatusBadge from './components/WorkflowStatusBadge';
+import ExportView from './views/ExportView';
+import ReportView from './views/ReportView';
+import './styles/print.css';
 
 // --- Completeness Indicator Component ---
 const CompletenessIndicator = () => {
@@ -22,13 +30,20 @@ const CompletenessIndicator = () => {
   const hasProcess = state.processes.length > 0;
   const hasActivity = state.activity.fuels.length > 0 || state.activity.electricity.length > 0;
   const hasProducts = state.products.length > 0 && state.products.every(p => !!p.cnCode);
-  // Basic check: mass balance error < 5%? For now just check availability.
   const hasAllocation = state.products.length > 0;
+
+  // Sector-aware completeness check
+  const sectorCheck = checkSectorCompleteness(state.emissionBlocks || []);
+  const hasSectorBlocks = sectorCheck.sectors.length === 0 || sectorCheck.complete;
+  const sectorHint = sectorCheck.missing.length > 0
+    ? `Missing: ${sectorCheck.missing.map(m => `${m.label} (${m.sector})`).join(', ')}`
+    : 'No sector-specific blocks required';
 
   const steps = [
     { label: "Installation details", done: hasInstallation, tab: "boundaries", hint: "Set installation name & country" },
     { label: "Processes defined", done: hasProcess, tab: "processes", hint: "Add at least one process" },
     { label: "Activity data entered", done: hasActivity, tab: "activity", hint: "Enter fuel or electricity data" },
+    { label: "Sector emission blocks", done: hasSectorBlocks, tab: "activity", hint: sectorHint },
     { label: "Products with CN codes", done: hasProducts, tab: "allocation", hint: "Add products and assign CN codes" },
     { label: "Allocation configured", done: hasAllocation, tab: "allocation", hint: "Configure product allocation" },
   ];
@@ -129,12 +144,17 @@ function App() {
   // Tab Rendering
   const renderView = () => {
     switch (state.activeTab) {
+      case 'dashboard': return <DashboardView />;
       case 'boundaries': return <BoundariesView />;
       case 'processes': return <ProcessesView />;
       case 'activity': return <ActivityView />;
       case 'allocation': return <AllocationView />;
       case 'results': return <ResultsView />;
-      default: return <div className="text-center p-10 text-slate-400">View not found</div>;
+      case 'audit': return <AuditTrailView />;
+      case 'qa': return <QADashboardView />;
+      case 'export': return <ExportView />;
+      case 'report': return <ReportView />;
+      default: return <DashboardView />;
     }
   };
 
@@ -176,6 +196,7 @@ function App() {
           </div>
 
           <div className="flex items-center gap-4">
+            <WorkflowStatusBadge />
             {state.isDirty && (
               <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100 animate-pulse">
                 Unsaved Changes

@@ -12,6 +12,7 @@ import {
     getKzDefault,
     getDefaultScope,
 } from '../data/cbamReferenceData';
+import { getDefaultValue, getAutoScope } from '../data/cbamDefaultValues';
 
 /**
  * Calculate a full CBAM projection (2026-2034).
@@ -26,6 +27,7 @@ import {
  * @param {number} config.importedQty     — Annual import volume (tonnes)
  * @param {string} config.cnCode          — CN code for default value lookup
  * @param {string} config.goodCategory    — Sector name for scope/markup rules
+ * @param {string} config.country        — Country for default value lookup (default: 'Kazakhstan')
  * @param {number} config.seeDirect       — Actual direct SEE (t CO₂/t product)
  * @param {number} config.seeIndirect     — Actual indirect SEE
  * @returns {Object} { rows: Array<ProjectionRow>, totals: ProjectionTotals }
@@ -41,13 +43,18 @@ export function calculateCBAMProjection(config) {
         importedQty = 0,
         cnCode = '',
         goodCategory = 'Aluminium',
+        country = 'Kazakhstan',
         seeDirect = 0,
         seeIndirect = 0,
     } = config;
 
-    const effectiveScope = scope || getDefaultScope(goodCategory);
+    const effectiveScope = scope || getAutoScope(cnCode) || getDefaultScope(goodCategory);
     const markupSchedule = getMarkupSchedule(goodCategory);
-    const defaultEntry = getKzDefault(cnCode);
+
+    // Lookup default values: try comprehensive dataset first, then fallback
+    const newDefault = getDefaultValue(country, cnCode);
+    const legacyDefault = getKzDefault(cnCode);
+    const defaultEntry = newDefault || legacyDefault;
 
     const rows = CBAM_PHASE_IN.map((phaseIn, i) => {
         const year = phaseIn.year;
@@ -61,11 +68,26 @@ export function calculateCBAMProjection(config) {
         if (basis === 'ACTUAL') {
             intensity = effectiveScope === 'DIRECT_ONLY' ? seeDirect : (seeDirect + seeIndirect);
         } else {
-            // DEFAULT — use official EU default values with markup
-            if (defaultEntry) {
+            // DEFAULT — use official EU default values
+            if (newDefault) {
+                // New dataset has pre-computed markup values per year
+                if (year <= 2026 && newDefault.m26 != null) {
+                    intensity = newDefault.m26;
+                } else if (year === 2027 && newDefault.m27 != null) {
+                    intensity = newDefault.m27;
+                } else if (year >= 2028 && newDefault.m28 != null) {
+                    intensity = newDefault.m28;
+                } else {
+                    // Fallback: apply markup manually
+                    const baseValue = effectiveScope === 'DIRECT_ONLY'
+                        ? (newDefault.d || 0)
+                        : (newDefault.t || newDefault.d || 0);
+                    intensity = baseValue * (1 + markup);
+                }
+            } else if (legacyDefault) {
                 const baseValue = effectiveScope === 'DIRECT_ONLY'
-                    ? defaultEntry.direct
-                    : (defaultEntry.total || defaultEntry.direct);
+                    ? legacyDefault.direct
+                    : (legacyDefault.total || legacyDefault.direct);
                 intensity = baseValue * (1 + markup);
             } else {
                 intensity = 0;

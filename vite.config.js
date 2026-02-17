@@ -9,4 +9,15 @@ export default defineConfig({
     tailwindcss(),
   ],
   base: '/carbon-ledger-mrv/',
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'cbam-defaults': ['./src/data/cbamDefaultValues.js'],
+          'charts': ['recharts'],
+          'vendor': ['react', 'react-dom', 'framer-motion'],
+        }
+      }
+    }
+  }
 })

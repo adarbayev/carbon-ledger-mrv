@@ -1,0 +1,48 @@
+/* Print-specific styles for MRV Report */
+@media print {
+    /* Hide non-report UI */
+    aside, header, .print\:hidden, nav {
+        display: none !important;
+    }
+
+    /* Reset layout */
+    main {
+        margin-left: 0 !important;
+        padding: 0 !important;
+    }
+
+    body {
+        background: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Report container */
+    #report-content {
+        box-shadow: none !important;
+        border: none !important;
+        border-radius: 0 !important;
+    }
+
+    /* Page breaks */
+    .print\:break-before-auto {
+        break-before: auto;
+    }
+
+    .print\:break-after-avoid {
+        break-after: avoid;
+    }
+
+    /* Tables should not break mid-row */
+    tr {
+        break-inside: avoid;
+    }
+
+    /* Ensure backgrounds print */
+    .bg-blue-50, .bg-cyan-50, .bg-indigo-50,
+    .bg-emerald-50, .bg-amber-50, .bg-red-50,
+    .bg-emerald-100, .bg-slate-100 {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}

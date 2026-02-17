@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { CBAM_CN_CODES, getCnCodeInfo, getSectors, calcFuelEmissions, calcElecEmissions } from '../data/referenceData';
+import { CBAM_CN_CODES, getCnCodeInfo, getSectors } from '../data/referenceData';
+import { calculateTotalEmissions } from '../engine/emissionEngine';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { ChevronDown, ChevronRight, Package, AlertTriangle } from 'lucide-react';
 
@@ -9,9 +10,15 @@ export default function AllocationView() {
     const [expandedProducts, setExpandedProducts] = useState({});
     const [cnSearch, setCnSearch] = useState({});
 
-    // --- Calculations ---
-    const totalDirect = Math.round(state.activity.fuels.reduce((sum, f) => sum + calcFuelEmissions(f).total, 0));
-    const totalIndirect = Math.round(state.activity.electricity.reduce((sum, e) => sum + calcElecEmissions(e), 0));
+    // --- Calculations (Multi-Gas) ---
+    const emissionResult = calculateTotalEmissions({
+        fuels: state.activity.fuels,
+        electricity: state.activity.electricity,
+        processEvents: state.processEvents || [],
+        emissionBlocks: state.emissionBlocks || [],
+    });
+    const totalDirect = Math.round(emissionResult.summary.directCO2e);
+    const totalIndirect = Math.round(emissionResult.summary.indirectCO2e);
 
     const treatResidueAsWaste = state.allocationSettings.treatResidueAsWaste;
     const validProducts = state.products.filter(p => !treatResidueAsWaste || !p.isResidue);

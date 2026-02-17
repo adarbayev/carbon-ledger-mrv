@@ -1,80 +1,216 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+// ═══════════════════════════════════════════════════════════════
+//  App Context — SQLite-backed state management
+//  Thin React wrapper around the Data Access Layer (DAL)
+//  Replaces localStorage with sql.js / IndexedDB persistence
+// ═══════════════════════════════════════════════════════════════
+
+import React, { createContext, useContext, useReducer, useEffect, useState, useCallback } from 'react';
+import { initDatabase, persistDatabase, resetDatabase } from '../db/database.js';
+import { seedDemoData } from '../db/seed.js';
+import * as DAL from '../db/dal.js';
 import { getCnCodeInfo } from '../data/referenceData';
 import { getDefaultScope } from '../data/cbamReferenceData';
 
 const AppContext = createContext();
 
-const STORAGE_KEY = 'carbon_ledger_react_v1';
+// ─── Build state snapshot from SQLite ────────────────────────
+// Reads all tables and builds a state object matching the shape
+// that existing views expect.
 
-const initialState = {
-    meta: {
-        installationName: "Rotterdam Refinery Unit A (Demo)",
-        country: "NL",
-        periodStart: "2024-01",
-        periodEnd: "2024-12",
-        lastSaved: null
-    },
-    boundaries: [
-        { id: "b1", name: "Electrolysis", included: true, notes: "Main production process", evidence: "P&ID-101" },
-        { id: "b2", name: "Casting", included: true, notes: "Downstream unit", evidence: "Layout-A" },
-        { id: "b3", name: "Anode production", included: true, notes: "Auxiliary unit", evidence: "" },
-        { id: "b4", name: "Fuel combustion", included: true, notes: "Scope 1 emissions", evidence: "Gas bills" },
-        { id: "b5", name: "Electricity use", included: true, notes: "Scope 2 (Location based)", evidence: "Utility meter" },
-        { id: "b6", name: "PFC emissions", included: false, notes: "Not applicable for this technology", evidence: "Process description" },
-        { id: "b7", name: "On-site vehicles", included: true, notes: "Forklifts and trucks", evidence: "Fuel log" }
-    ],
-    processes: [
-        { id: "P01", name: "Electrolysis", description: "Primary aluminum production via Hall-Héroult", active: true },
-        { id: "P02", name: "Casting", description: "Molten metal casting into ingots", active: true },
-        { id: "P03", name: "Auxiliary services", description: "Compressed air, water treatment", active: true },
-        { id: "P04", name: "Anode handling", description: "Transport and storage of anodes", active: true }
-    ],
-    activity: {
-        fuels: [
-            { id: "f1", period: "2024-01", processId: "P03", fuelTypeId: "natural_gas", quantity: 500, unit: "t", evidence: "Bill #123", customNcv: 0, customEf: 0 },
-            { id: "f2", period: "2024-02", processId: "P03", fuelTypeId: "natural_gas", quantity: 520, unit: "t", evidence: "Bill #124", customNcv: 0, customEf: 0 },
-            { id: "f3", period: "2024-01", processId: "P04", fuelTypeId: "diesel", quantity: 120, unit: "t", evidence: "Fuel Log", customNcv: 0, customEf: 0 }
-        ],
-        electricity: [
-            { id: "e1", period: "2024-01", processId: "P01", mwh: 14500, gridCountry: "NL", ef: 0.328, efOverride: false, evidence: "Grid Statement Jan" },
-            { id: "e2", period: "2024-02", processId: "P01", mwh: 14200, gridCountry: "NL", ef: 0.328, efOverride: false, evidence: "Grid Statement Feb" },
-            { id: "e3", period: "2024-01", processId: "P02", mwh: 800, gridCountry: "NL", ef: 0.328, efOverride: false, evidence: "Sub-meter 2" }
-        ]
-    },
-    products: [
-        { id: "pr1", name: "INGOT output", quantity: 24000, isResidue: false, cnCode: "7601 10 00", precursors: [] },
-        { id: "pr2", name: "DROSS output", quantity: 1500, isResidue: true, cnCode: "", precursors: [] }
-    ],
-    allocationSettings: {
-        method: "mass",
-        treatResidueAsWaste: true
-    },
-    cbamSettings: {
-        basis: "ACTUAL",               // ACTUAL | DEFAULT
-        scope: "DIRECT_ONLY",          // DIRECT_ONLY | TOTAL
-        certPriceScenario: "MID",      // LOW | MID | HIGH
-        alPriceScenario: "MID",        // LOW | MID | HIGH
-        carbonCreditEligible: true,    // KZ ETS deduction eligible?
-        carbonCreditScenario: "HIGH",  // NONE | LOW | MID | HIGH
-        importedQty: 110000,           // Annual import volume (tonnes)
-        cnCode: "7601",                // CN code for default value lookup
-        goodCategory: "Aluminium",     // Sector for scope/markup rules
-    },
-    isDirty: false,
-    activeTab: "boundaries"
-};
+function buildStateFromDB() {
+    const installation = DAL.getInstallation('default');
+    const boundaries = DAL.getBoundaries('default');
+    const processes = DAL.getProcesses('default');
+    const fuels = DAL.getFuelEntries();
+    const electricity = DAL.getElectricityEntries();
+    const processEvents = DAL.getProcessEvents();
+    const emissionBlocks = DAL.getEmissionBlocks('default');
+    const products = DAL.getProducts('default');
+    const productionOutput = DAL.getProductionOutput();
+    const cbamSettings = DAL.getCbamSettings();
+    const allocSettings = DAL.getAllocationSettings();
+
+    // Map DB rows to view-compatible shapes
+    return {
+        meta: installation ? {
+            installationName: installation.name,
+            country: installation.country,
+            periodStart: installation.period_start,
+            periodEnd: installation.period_end,
+            workflowStatus: installation.workflow_status || 'DRAFT',
+            reviewerName: installation.reviewer_name || '',
+            reviewDate: installation.review_date || '',
+            submitDate: installation.submit_date || '',
+            lastSaved: null,
+        } : {
+            installationName: 'New Installation',
+            country: 'KZ',
+            periodStart: '2025-01',
+            periodEnd: '2025-03',
+            workflowStatus: 'DRAFT',
+            reviewerName: '',
+            reviewDate: '',
+            submitDate: '',
+            lastSaved: null,
+        },
+        boundaries: boundaries.map(b => ({
+            id: b.id,
+            name: b.name,
+            included: !!b.included,
+            notes: b.notes || '',
+            evidence: b.evidence || '',
+        })),
+        processes: processes.map(p => ({
+            id: p.id,
+            name: p.name,
+            description: p.description || '',
+            category: p.category || 'Core',
+            active: !!p.active,
+        })),
+        activity: {
+            fuels: fuels.map(f => ({
+                id: f.stable_id,
+                period: f.period,
+                processId: f.process_id,
+                fuelTypeId: f.fuel_type_id,
+                quantity: f.quantity || 0,
+                unit: f.unit || 't',
+                evidence: f.evidence || '',
+                customNcv: f.custom_ncv || 0,
+                customEf: f.custom_ef_co2 || 0,
+                customEfCo2: f.custom_ef_co2 || 0,
+                customEfCh4: f.custom_ef_ch4 || 0,
+                customEfN2o: f.custom_ef_n2o || 0,
+                notes: f.notes || '',
+                _versionId: f.version_id,
+                _versionNumber: f.version_number,
+            })),
+            electricity: electricity.map(e => ({
+                id: e.stable_id,
+                period: e.period,
+                processId: e.process_id,
+                mwh: e.mwh || 0,
+                gridCountry: e.grid_country || 'OTHER',
+                ef: e.ef || 0,
+                efOverride: !!e.ef_override,
+                evidence: e.evidence || '',
+                notes: e.notes || '',
+                _versionId: e.version_id,
+                _versionNumber: e.version_number,
+            })),
+        },
+        processEvents: processEvents.map(pe => ({
+            id: pe.stable_id,
+            period: pe.period,
+            processId: pe.process_id,
+            eventType: pe.event_type,
+            parameter: pe.parameter,
+            value: pe.value || 0,
+            unit: pe.unit || '',
+            dataSource: pe.data_source || '',
+            evidence: pe.evidence || '',
+            _versionId: pe.version_id,
+            _versionNumber: pe.version_number,
+        })),
+        emissionBlocks: emissionBlocks.map(eb => ({
+            id: eb.id,
+            period: eb.period,
+            processId: eb.process_id,
+            templateId: eb.template_id || null,
+            name: eb.name,
+            outputGas: eb.output_gas || 'CO2',
+            formula: eb.formula || '',
+            formulaDisplay: eb.formula_display || '',
+            parameters: eb.parameters || [],
+            source: eb.source || '',
+            notes: eb.notes || '',
+        })),
+        products: products.map(p => ({
+            id: p.id,
+            name: p.name,
+            quantity: 0,  // Will be summed from production output below
+            isResidue: !!p.is_residue,
+            cnCode: p.cn_code || '',
+            precursors: [],
+        })),
+        productionOutput: productionOutput.map(po => ({
+            id: po.stable_id,
+            period: po.period,
+            productId: po.product_id,
+            processId: po.process_id,
+            quantity: po.quantity || 0,
+            dataSource: po.data_source || '',
+            _versionId: po.version_id,
+        })),
+        allocationSettings: {
+            method: allocSettings?.method || 'mass',
+            treatResidueAsWaste: !!(allocSettings?.treat_residue_as_waste),
+        },
+        cbamSettings: cbamSettings ? {
+            basis: cbamSettings.basis || 'ACTUAL',
+            scope: cbamSettings.scope || 'DIRECT_ONLY',
+            certPriceScenario: cbamSettings.cert_price_scenario || 'MID',
+            alPriceScenario: cbamSettings.al_price_scenario || 'MID',
+            carbonCreditEligible: !!cbamSettings.carbon_credit_eligible,
+            carbonCreditScenario: cbamSettings.carbon_credit_scenario || 'HIGH',
+            importedQty: cbamSettings.imported_qty || 110000,
+            cnCode: cbamSettings.cn_code || '7601',
+            goodCategory: cbamSettings.good_category || 'Aluminium',
+        } : {
+            basis: 'ACTUAL', scope: 'DIRECT_ONLY', certPriceScenario: 'MID',
+            alPriceScenario: 'MID', carbonCreditEligible: true, carbonCreditScenario: 'HIGH',
+            importedQty: 110000, cnCode: '7601', goodCategory: 'Aluminium',
+        },
+        isDirty: false,
+        activeTab: 'dashboard',
+    };
+}
+
+// Sum production output quantities into products
+function enrichProductQuantities(state) {
+    const outputByProduct = {};
+    (state.productionOutput || []).forEach(po => {
+        outputByProduct[po.productId] = (outputByProduct[po.productId] || 0) + po.quantity;
+    });
+    return {
+        ...state,
+        products: state.products.map(p => ({
+            ...p,
+            quantity: outputByProduct[p.id] || p.quantity || 0,
+        })),
+    };
+}
+
+// ─── Reducer ─────────────────────────────────────────────────
+// Still synchronous for React rendering; DAL writes happen
+// in the dispatch wrapper.
 
 const reducer = (state, action) => {
-    // Helper to mark dirty if not already
     const markDirty = (s) => ({ ...s, isDirty: true });
 
     switch (action.type) {
         case 'LOAD_STATE':
             return { ...action.payload, isDirty: false };
         case 'RESET_STATE':
-            return { ...initialState };
+            return { ...action.payload, isDirty: false };
         case 'SET_TAB':
             return { ...state, activeTab: action.payload };
+        case 'SET_WORKFLOW_STATUS': {
+            const newStatus = action.payload.status;
+            const now = new Date().toISOString();
+            const updatedMeta = {
+                ...state.meta,
+                workflowStatus: newStatus,
+            };
+            if (newStatus === 'APPROVED') {
+                updatedMeta.reviewerName = action.payload.reviewer || state.meta.reviewerName;
+                updatedMeta.reviewDate = now;
+            }
+            if (newStatus === 'SUBMITTED') {
+                updatedMeta.submitDate = now;
+            }
+            return markDirty({ ...state, meta: updatedMeta });
+        }
 
         // --- META ---
         case 'UPDATE_META':
@@ -94,10 +230,16 @@ const reducer = (state, action) => {
 
         // --- PROCESSES ---
         case 'ADD_PROCESS': {
-            const newId = `P${(state.processes.length + 1).toString().padStart(2, '0')}`;
+            const nextNum = state.processes.length + 1;
+            const newProcess = action.payload || {
+                id: `P${String(nextNum).padStart(2, '0')}`,
+                name: `Process ${nextNum}`,
+                description: '',
+                active: true,
+            };
             return markDirty({
                 ...state,
-                processes: [...state.processes, { id: newId, name: "New Process", description: "", active: true }]
+                processes: [...state.processes, newProcess]
             });
         }
         case 'UPDATE_PROCESS':
@@ -119,13 +261,7 @@ const reducer = (state, action) => {
                 ...state,
                 activity: {
                     ...state.activity,
-                    fuels: [...state.activity.fuels, {
-                        id: `f${Date.now()}`,
-                        period: state.meta.periodStart || '2024-01',
-                        processId: state.processes[0]?.id || "",
-                        fuelTypeId: "natural_gas", quantity: 0, unit: "t", evidence: "",
-                        customNcv: 0, customEf: 0
-                    }]
+                    fuels: [...state.activity.fuels, action.payload]
                 }
             });
         case 'UPDATE_FUEL':
@@ -136,7 +272,7 @@ const reducer = (state, action) => {
                     fuels: state.activity.fuels.map(f =>
                         f.id === action.payload.id ? {
                             ...f,
-                            [action.payload.field]: ['quantity', 'customNcv', 'customEf'].includes(action.payload.field)
+                            [action.payload.field]: ['quantity', 'customNcv', 'customEf', 'customEfCo2', 'customEfCh4', 'customEfN2o'].includes(action.payload.field)
                                 ? (parseFloat(action.payload.value) || 0) : action.payload.value
                         } : f
                     )
@@ -157,12 +293,7 @@ const reducer = (state, action) => {
                 ...state,
                 activity: {
                     ...state.activity,
-                    electricity: [...state.activity.electricity, {
-                        id: `e${Date.now()}`,
-                        period: state.meta.periodStart || '2024-01',
-                        processId: state.processes[0]?.id || "",
-                        mwh: 0, gridCountry: state.meta.country || 'OTHER', ef: 0, efOverride: false, evidence: ""
-                    }]
+                    electricity: [...state.activity.electricity, action.payload]
                 }
             });
         case 'UPDATE_ELEC':
@@ -187,11 +318,67 @@ const reducer = (state, action) => {
                 }
             });
 
+        // --- PROCESS EVENTS ---
+        case 'ADD_PROCESS_EVENT':
+            return markDirty({
+                ...state,
+                processEvents: [...(state.processEvents || []), action.payload]
+            });
+        case 'UPDATE_PROCESS_EVENT':
+            return markDirty({
+                ...state,
+                processEvents: (state.processEvents || []).map(pe =>
+                    pe.id === action.payload.id ? {
+                        ...pe,
+                        [action.payload.field]: ['value'].includes(action.payload.field)
+                            ? (parseFloat(action.payload.value) || 0) : action.payload.value
+                    } : pe
+                )
+            });
+        case 'DELETE_PROCESS_EVENT':
+            return markDirty({
+                ...state,
+                processEvents: (state.processEvents || []).filter(pe => pe.id !== action.payload)
+            });
+
+        // --- EMISSION BLOCKS ---
+        case 'ADD_EMISSION_BLOCK':
+            return markDirty({
+                ...state,
+                emissionBlocks: [...(state.emissionBlocks || []), action.payload]
+            });
+        case 'UPDATE_EMISSION_BLOCK':
+            return markDirty({
+                ...state,
+                emissionBlocks: (state.emissionBlocks || []).map(eb =>
+                    eb.id === action.payload.id ? { ...eb, ...action.payload.data } : eb
+                )
+            });
+        case 'UPDATE_BLOCK_PARAM': {
+            const { blockId, paramKey, value } = action.payload;
+            return markDirty({
+                ...state,
+                emissionBlocks: (state.emissionBlocks || []).map(eb =>
+                    eb.id === blockId ? {
+                        ...eb,
+                        parameters: eb.parameters.map(p =>
+                            p.key === paramKey ? { ...p, value: parseFloat(value) || 0 } : p
+                        )
+                    } : eb
+                )
+            });
+        }
+        case 'DELETE_EMISSION_BLOCK':
+            return markDirty({
+                ...state,
+                emissionBlocks: (state.emissionBlocks || []).filter(eb => eb.id !== action.payload)
+            });
+
         // --- PRODUCTS ---
         case 'ADD_PRODUCT':
             return markDirty({
                 ...state,
-                products: [...state.products, { id: `pr${Date.now()}`, name: "New Product", quantity: 0, isResidue: false, cnCode: "", precursors: [] }]
+                products: [...state.products, action.payload]
             });
         case 'UPDATE_PRODUCT': {
             const updatedProducts = state.products.map(p =>
@@ -200,7 +387,7 @@ const reducer = (state, action) => {
                     [action.payload.field]: action.payload.field === 'quantity' ? (parseFloat(action.payload.value) || 0) : action.payload.value
                 } : p
             );
-            // Auto-sync: when CN code changes on main (non-residue) product → update CBAM settings
+            // Auto-sync: when CN code changes → update CBAM settings
             let newCbamSettings = state.cbamSettings;
             if (action.payload.field === 'cnCode') {
                 const product = updatedProducts.find(p => p.id === action.payload.id);
@@ -210,7 +397,7 @@ const reducer = (state, action) => {
                         const sector = cnInfo.sector;
                         newCbamSettings = {
                             ...state.cbamSettings,
-                            cnCode: action.payload.value.replace(/\s/g, '').substring(0, 4), // first 4 digits for default lookup
+                            cnCode: action.payload.value.replace(/\s/g, '').substring(0, 4),
                             goodCategory: sector,
                             scope: getDefaultScope(sector),
                         };
@@ -229,7 +416,7 @@ const reducer = (state, action) => {
                 products: state.products.filter(p => p.id !== action.payload)
             });
 
-        // --- PRECURSORS (nested under products) ---
+        // --- PRECURSORS ---
         case 'ADD_PRECURSOR': {
             const { productId } = action.payload;
             return markDirty({
@@ -299,57 +486,233 @@ const reducer = (state, action) => {
     }
 };
 
-export const AppProvider = ({ children }) => {
-    const [state, dispatch] = useReducer(reducer, initialState);
+// ─── DAL Write Middleware ─────────────────────────────────────
+// Synchronizes React state changes back to SQLite
 
-    // Load on mount
-    useEffect(() => {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                dispatch({ type: 'LOAD_STATE', payload: parsed });
-            } catch (e) {
-                console.error("Failed to load state", e);
+function syncToDAL(action, state) {
+    try {
+        switch (action.type) {
+            case 'UPDATE_META': {
+                const meta = { ...state.meta, [action.payload.field]: action.payload.value };
+                DAL.saveInstallation({
+                    id: 'default',
+                    name: meta.installationName,
+                    country: meta.country,
+                    periodStart: meta.periodStart,
+                    periodEnd: meta.periodEnd,
+                });
+                break;
             }
+            case 'UPDATE_BOUNDARY':
+                DAL.saveBoundary({
+                    id: action.payload.id,
+                    [action.payload.field]: action.payload.value,
+                    ...state.boundaries.find(b => b.id === action.payload.id),
+                });
+                break;
+            case 'ADD_PROCESS':
+                DAL.saveProcess(action.payload);
+                break;
+            case 'UPDATE_PROCESS': {
+                const proc = state.processes.find(p => p.id === action.payload.id);
+                if (proc) DAL.saveProcess({ ...proc, [action.payload.field]: action.payload.value });
+                break;
+            }
+            case 'DELETE_PROCESS':
+                DAL.deleteProcess(action.payload);
+                break;
+            case 'ADD_FUEL':
+                DAL.saveFuelEntry(action.payload);
+                break;
+            case 'UPDATE_FUEL': {
+                const fuel = state.activity.fuels.find(f => f.id === action.payload.id);
+                if (fuel) {
+                    const updated = { ...fuel, [action.payload.field]: action.payload.value };
+                    DAL.saveFuelEntry({ stableId: updated.id, ...updated });
+                }
+                break;
+            }
+            case 'DELETE_FUEL':
+                DAL.deleteFuelEntry(action.payload);
+                break;
+            case 'ADD_ELEC':
+                DAL.saveElectricityEntry(action.payload);
+                break;
+            case 'UPDATE_ELEC': {
+                const elec = state.activity.electricity.find(e => e.id === action.payload.id);
+                if (elec) {
+                    const updated = { ...elec, [action.payload.field]: action.payload.value };
+                    DAL.saveElectricityEntry({ stableId: updated.id, ...updated });
+                }
+                break;
+            }
+            case 'DELETE_ELEC':
+                DAL.deleteElectricityEntry(action.payload);
+                break;
+            case 'ADD_PROCESS_EVENT':
+                DAL.saveProcessEvent(action.payload);
+                break;
+            case 'UPDATE_PROCESS_EVENT': {
+                const pe = (state.processEvents || []).find(p => p.id === action.payload.id);
+                if (pe) {
+                    const updated = { ...pe, [action.payload.field]: action.payload.value };
+                    DAL.saveProcessEvent({ stableId: updated.id, ...updated });
+                }
+                break;
+            }
+            case 'DELETE_PROCESS_EVENT':
+                DAL.deleteProcessEvent(action.payload);
+                break;
+            case 'ADD_EMISSION_BLOCK':
+                DAL.saveEmissionBlock(action.payload);
+                break;
+            case 'UPDATE_EMISSION_BLOCK': {
+                const eb = (state.emissionBlocks || []).find(b => b.id === action.payload.id);
+                if (eb) DAL.updateEmissionBlock(action.payload.id, { ...eb, ...action.payload.data });
+                break;
+            }
+            case 'UPDATE_BLOCK_PARAM': {
+                const blk = (state.emissionBlocks || []).find(b => b.id === action.payload.blockId);
+                if (blk) {
+                    const updatedParams = blk.parameters.map(p =>
+                        p.key === action.payload.paramKey ? { ...p, value: parseFloat(action.payload.value) || 0 } : p
+                    );
+                    DAL.updateEmissionBlock(blk.id, { ...blk, parameters: updatedParams });
+                }
+                break;
+            }
+            case 'DELETE_EMISSION_BLOCK':
+                DAL.deleteEmissionBlock(action.payload);
+                break;
+            case 'ADD_PRODUCT':
+                DAL.saveProduct(action.payload);
+                break;
+            case 'UPDATE_PRODUCT': {
+                const prod = state.products.find(p => p.id === action.payload.id);
+                if (prod) DAL.saveProduct({ ...prod, [action.payload.field]: action.payload.value });
+                break;
+            }
+            case 'DELETE_PRODUCT':
+                DAL.deleteProduct(action.payload);
+                break;
+            case 'UPDATE_CBAM':
+                DAL.saveCbamSettings({ ...state.cbamSettings, [action.payload.field]: action.payload.value });
+                break;
+            case 'UPDATE_ALLOC_SETTINGS':
+                DAL.saveAllocationSettings({ ...state.allocationSettings, [action.payload.field]: action.payload.value });
+                break;
+        }
+    } catch (err) {
+        console.warn('[DAL Sync] Error syncing action to SQLite:', action.type, err);
+    }
+}
+
+// ─── Provider Component ──────────────────────────────────────
+
+const emptyState = {
+    meta: { installationName: '', country: '', periodStart: '', periodEnd: '', lastSaved: null },
+    boundaries: [],
+    processes: [],
+    activity: { fuels: [], electricity: [] },
+    processEvents: [],
+    emissionBlocks: [],
+    products: [],
+    productionOutput: [],
+    allocationSettings: { method: 'mass', treatResidueAsWaste: true },
+    cbamSettings: {
+        basis: 'ACTUAL', scope: 'DIRECT_ONLY', certPriceScenario: 'MID',
+        alPriceScenario: 'MID', carbonCreditEligible: true, carbonCreditScenario: 'HIGH',
+        importedQty: 110000, cnCode: '7601', goodCategory: 'Aluminium',
+    },
+    isDirty: false,
+    activeTab: 'dashboard',
+};
+
+export const AppProvider = ({ children }) => {
+    const [state, rawDispatch] = useReducer(reducer, emptyState);
+    const [dbReady, setDbReady] = useState(false);
+    const [dbError, setDbError] = useState(null);
+
+    // Initialize database on mount
+    useEffect(() => {
+        let cancelled = false;
+        async function init() {
+            try {
+                await initDatabase();
+                seedDemoData();
+                if (!cancelled) {
+                    const loaded = enrichProductQuantities(buildStateFromDB());
+                    rawDispatch({ type: 'LOAD_STATE', payload: loaded });
+                    setDbReady(true);
+                }
+            } catch (err) {
+                console.error('[DB] Initialization failed:', err);
+                if (!cancelled) setDbError(err.message);
+            }
+        }
+        init();
+        return () => { cancelled = true; };
+    }, []);
+
+    // Dispatch wrapper that syncs to DAL
+    const dispatch = useCallback((action) => {
+        rawDispatch(action);
+        // Sync to SQLite (after React state update)
+        if (dbReady) {
+            syncToDAL(action, state);
+        }
+    }, [dbReady, state]);
+
+    // Save = persist SQLite database to IndexedDB
+    const save = useCallback(async () => {
+        rawDispatch({ type: 'SAVE_STATE' });
+        await persistDatabase();
+        console.log('[App] Saved to IndexedDB');
+    }, []);
+
+    // Reset = drop and re-seed
+    const reset = useCallback(async () => {
+        if (confirm("Reset entire demo? This will wipe all data.")) {
+            await resetDatabase();
+            seedDemoData();
+            const loaded = enrichProductQuantities(buildStateFromDB());
+            rawDispatch({ type: 'LOAD_STATE', payload: loaded });
+            await persistDatabase();
         }
     }, []);
 
-    // Save Action (Exposed to UI)
-    const save = () => {
-        dispatch({ type: 'SAVE_STATE' });
-        // We need to access the *new* state to save it, but inside this function 'state' is the old closure.
-        // However, we can use a side-effect (useEffect) to detect save trigger? 
-        // Or simpler: just saving the CURRENT state is technically one tick behind if we just dispatched?
-        // Actually, reducer runs synchronously but component state update is async.
-        // Better pattern: Persist in useEffect when specific condition met or just save manually passing state.
-        // BUT: dispatch is the React way. 
-        // Let's use a useEffect that listens to a "lastSaved" change? Or just persist to localStorage in the reducer?
-        // Reducer shouldn't have side effects.
-        // Let's use a dedicated useEffect for persistence when 'lastSaved' changes.
-    };
-
-    // Persistence Effect
-    // Persistence Effect
-    const lastSavedRef = React.useRef(state.meta.lastSaved);
-
-    useEffect(() => {
-        // Only save if lastSaved has changed (explicit save action)
-        if (state.meta.lastSaved !== lastSavedRef.current) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-            lastSavedRef.current = state.meta.lastSaved;
-        }
-    }, [state.meta.lastSaved, state]);
-
-    const reset = () => {
-        if (confirm("Reset entire demo?")) {
-            localStorage.removeItem(STORAGE_KEY);
-            dispatch({ type: 'RESET_STATE' });
-        }
-    };
+    // Loading screen
+    if (!dbReady) {
+        return (
+            <div style={{
+                display: 'flex', justifyContent: 'center', alignItems: 'center',
+                height: '100vh', background: '#0f172a', color: '#94a3b8',
+                fontFamily: 'Inter, sans-serif', flexDirection: 'column', gap: '16px'
+            }}>
+                <div style={{ fontSize: '24px', fontWeight: 600, color: '#e2e8f0' }}>
+                    Carbon Ledger
+                </div>
+                {dbError ? (
+                    <div style={{ color: '#f87171' }}>
+                        Database error: {dbError}
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{
+                            width: '16px', height: '16px', border: '2px solid #64748b',
+                            borderTopColor: '#3b82f6', borderRadius: '50%',
+                            animation: 'spin 1s linear infinite'
+                        }} />
+                        Initializing database...
+                    </div>
+                )}
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+        );
+    }
 
     return (
-        <AppContext.Provider value={{ state, dispatch, save, reset }}>
+        <AppContext.Provider value={{ state, dispatch, save, reset, dbReady }}>
             {children}
         </AppContext.Provider>
     );
