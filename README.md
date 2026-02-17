@@ -93,6 +93,3 @@ Deployment is automatic via GitHub Actions. Push to `main` triggers:
 
 See [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
 
-## License
-
-Private — All rights reserved.
