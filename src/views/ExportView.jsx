@@ -1,24 +1,27 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { buildCBAMTemplate, downloadAsJSON, downloadAsCSV } from '../engine/cbamExporter';
+import { fmtInt, fmtNum } from '../utils/formatUtils';
 import { Download, FileJson, FileSpreadsheet, Eye, CheckCircle2, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 
 export default function ExportView() {
     const { state } = useApp();
+    const { t } = useLanguage();
     const [previewOpen, setPreviewOpen] = useState(false);
 
     const template = useMemo(() => buildCBAMTemplate(state), [state]);
-    const t = template.communicationTemplate;
+    const commTemplate = template.communicationTemplate;
     const isLocked = state.meta.workflowStatus === 'APPROVED' || state.meta.workflowStatus === 'SUBMITTED';
-    const hasGoods = t.goods.length > 0;
-    const hasEmissions = t.emissionsSummary.grandTotal > 0;
+    const hasGoods = commTemplate.goods.length > 0;
+    const hasEmissions = commTemplate.emissionsSummary.grandTotal > 0;
 
     const readinessChecks = [
-        { label: 'Emissions calculated', pass: hasEmissions },
-        { label: 'Products defined', pass: hasGoods },
-        { label: 'Period defined', pass: !!t.reportingPeriod.start && !!t.reportingPeriod.end },
-        { label: 'Installation named', pass: t.installation.name && t.installation.name !== 'New Installation' },
-        { label: 'Approved or Submitted', pass: isLocked, warn: true },
+        { label: t('ui.export.readiness.emissions'), pass: hasEmissions },
+        { label: t('ui.export.readiness.products'), pass: hasGoods },
+        { label: t('ui.export.readiness.period'), pass: !!commTemplate.reportingPeriod.start && !!commTemplate.reportingPeriod.end },
+        { label: t('ui.export.readiness.installation'), pass: commTemplate.installation.name && commTemplate.installation.name !== 'New Installation' },
+        { label: t('ui.export.readiness.approved'), pass: isLocked, warn: true },
     ];
 
     const criticalPassed = readinessChecks.filter(c => !c.warn).every(c => c.pass);
@@ -28,16 +31,16 @@ export default function ExportView() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-xl font-bold text-slate-800">CBAM Communication Export</h2>
+                    <h2 className="text-xl font-bold text-slate-800">{t('ui.export.title')}</h2>
                     <p className="text-sm text-slate-500 mt-1">
-                        Generate structured data for EU CBAM declarations
+                        {t('ui.export.subtitle')}
                     </p>
                 </div>
             </div>
 
             {/* Readiness Checks */}
             <div className="card">
-                <h3 className="text-sm font-semibold text-slate-700 mb-3">Export Readiness</h3>
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">{t('ui.export.readiness.title')}</h3>
                 <div className="grid grid-cols-5 gap-3">
                     {readinessChecks.map((c, i) => (
                         <div key={i} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm
@@ -58,17 +61,16 @@ export default function ExportView() {
                             <FileJson size={20} className="text-blue-600" />
                         </div>
                         <div>
-                            <h3 className="font-semibold text-slate-800">Export as JSON</h3>
-                            <p className="text-xs text-slate-500">Machine-readable structured data</p>
+                            <h3 className="font-semibold text-slate-800">{t('ui.export.json.title')}</h3>
+                            <p className="text-xs text-slate-500">{t('ui.export.json.subtitle')}</p>
                         </div>
                     </div>
                     <p className="text-xs text-slate-400 mb-3">
-                        Full CBAM communication template in JSON format. Suitable for automated processing
-                        and integration with EU CBAM registry systems.
+                        {t('ui.export.json.desc')}
                     </p>
                     <button className="flex items-center gap-2 text-sm font-medium text-blue-600 group-hover:text-blue-700 transition-colors">
                         <Download size={14} />
-                        Download JSON
+                        {t('ui.export.json.action')}
                     </button>
                 </div>
 
@@ -79,79 +81,79 @@ export default function ExportView() {
                             <FileSpreadsheet size={20} className="text-emerald-600" />
                         </div>
                         <div>
-                            <h3 className="font-semibold text-slate-800">Export as CSV</h3>
-                            <p className="text-xs text-slate-500">Spreadsheet-compatible format</p>
+                            <h3 className="font-semibold text-slate-800">{t('ui.export.csv.title')}</h3>
+                            <p className="text-xs text-slate-500">{t('ui.export.csv.subtitle')}</p>
                         </div>
                     </div>
                     <p className="text-xs text-slate-400 mb-3">
-                        Tabular export suitable for Excel, Google Sheets, or email-based operator communication workflows.
+                        {t('ui.export.csv.desc')}
                     </p>
                     <button className="flex items-center gap-2 text-sm font-medium text-emerald-600 group-hover:text-emerald-700 transition-colors">
                         <Download size={14} />
-                        Download CSV
+                        {t('ui.export.csv.action')}
                     </button>
                 </div>
             </div>
 
             {/* Summary Preview */}
             <div className="card">
-                <h3 className="text-sm font-semibold text-slate-700 mb-3">Export Summary</h3>
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">{t('ui.export.summary.title')}</h3>
                 <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Installation</span>
-                        <strong className="text-slate-800">{t.installation.name}</strong>
+                        <span className="text-slate-500">{t('ui.export.summary.installation')}</span>
+                        <strong className="text-slate-800">{commTemplate.installation.name}</strong>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Country</span>
-                        <strong className="text-slate-800">{t.installation.country}</strong>
+                        <span className="text-slate-500">{t('ui.export.summary.country')}</span>
+                        <strong className="text-slate-800">{commTemplate.installation.country}</strong>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Period</span>
-                        <strong className="text-slate-800">{t.reportingPeriod.start} → {t.reportingPeriod.end}</strong>
+                        <span className="text-slate-500">{t('ui.export.summary.period')}</span>
+                        <strong className="text-slate-800">{commTemplate.reportingPeriod.start} → {commTemplate.reportingPeriod.end}</strong>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Status</span>
-                        <strong className="text-slate-800">{t.verification.status}</strong>
+                        <span className="text-slate-500">{t('ui.export.summary.status')}</span>
+                        <strong className="text-slate-800">{commTemplate.verification.status}</strong>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">GWP Set</span>
-                        <strong className="text-slate-800">{t.methodology.gwpSetName}</strong>
+                        <span className="text-slate-500">{t('ui.export.summary.gwpSet')}</span>
+                        <strong className="text-slate-800">{commTemplate.methodology.gwpSetName}</strong>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Allocation</span>
-                        <strong className="text-slate-800 capitalize">{t.methodology.allocationMethod}</strong>
+                        <span className="text-slate-500">{t('ui.export.summary.allocation')}</span>
+                        <strong className="text-slate-800 capitalize">{commTemplate.methodology.allocationMethod}</strong>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Total Emissions</span>
-                        <strong className="text-slate-800">{t.emissionsSummary.grandTotal.toLocaleString()} tCO₂e</strong>
+                        <span className="text-slate-500">{t('ui.export.summary.total_emissions')}</span>
+                        <strong className="text-slate-800">{fmtInt(commTemplate.emissionsSummary.grandTotal)} tCO₂e</strong>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Products</span>
-                        <strong className="text-slate-800">{t.goods.length} good(s)</strong>
+                        <span className="text-slate-500">{t('ui.export.summary.products')}</span>
+                        <strong className="text-slate-800">{commTemplate.goods.length} {t('ui.export.summary.goods_suffix')}</strong>
                     </div>
                 </div>
 
                 {/* Goods Table */}
-                {t.goods.length > 0 && (
+                {commTemplate.goods.length > 0 && (
                     <div className="mt-4">
-                        <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Goods / Products</h4>
+                        <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{t('ui.export.goods.title')}</h4>
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="text-left text-xs text-slate-400 border-b border-slate-200">
-                                    <th className="py-2">Product</th>
-                                    <th className="py-2">CN Code</th>
-                                    <th className="py-2 text-right">Qty (t)</th>
-                                    <th className="py-2 text-right">Direct SEE</th>
-                                    <th className="py-2 text-right">Indirect SEE</th>
-                                    <th className="py-2 text-right">Total SEE</th>
+                                    <th className="py-2">{t('ui.export.goods.product')}</th>
+                                    <th className="py-2">{t('ui.export.goods.cn_code')}</th>
+                                    <th className="py-2 text-right">{t('ui.export.goods.qty')}</th>
+                                    <th className="py-2 text-right">{t('ui.export.goods.direct_see')}</th>
+                                    <th className="py-2 text-right">{t('ui.export.goods.indirect_see')}</th>
+                                    <th className="py-2 text-right">{t('ui.export.goods.total_see')}</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {t.goods.map((g, i) => (
+                                {commTemplate.goods.map((g, i) => (
                                     <tr key={i} className="border-b border-slate-100">
                                         <td className="py-2 font-medium text-slate-800">{g.productName}</td>
                                         <td className="py-2 text-slate-500">{g.cnCode || '—'}</td>
-                                        <td className="py-2 text-right">{g.productionQuantity.value.toLocaleString()}</td>
+                                        <td className="py-2 text-right">{fmtInt(g.productionQuantity.value)}</td>
                                         <td className="py-2 text-right">{g.embeddedEmissions.direct.specific}</td>
                                         <td className="py-2 text-right">{g.embeddedEmissions.indirect.specific}</td>
                                         <td className="py-2 text-right font-semibold">{g.embeddedEmissions.total.specific}</td>
@@ -171,7 +173,7 @@ export default function ExportView() {
                 >
                     {previewOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <Eye size={14} />
-                    Raw JSON Preview
+                    {t('ui.export.preview.title')}
                 </button>
                 {previewOpen && (
                     <pre className="mt-3 bg-slate-900 text-slate-50 p-4 rounded-lg text-xs overflow-auto max-h-96 font-mono">

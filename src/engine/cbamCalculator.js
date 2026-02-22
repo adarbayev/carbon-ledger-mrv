@@ -175,35 +175,3 @@ export function calculateCBAMProjection(config) {
     };
 }
 
-/**
- * Compare multiple scenarios side-by-side.
- * Returns projections for each scenario variant.
- *
- * @param {Object} baseConfig — Base CBAM config
- * @param {Array<Object>} scenarios — [{ name, label, color, overrides }]
- * @returns {Array<Object>} — [{ name, label, color, projection }]
- */
-export function compareScenarios(baseConfig, scenarios) {
-    return scenarios.map(scenario => {
-        const config = { ...baseConfig, ...scenario.overrides };
-        const projection = calculateCBAMProjection(config);
-        return {
-            name: scenario.name,
-            label: scenario.label,
-            color: scenario.color,
-            projection,
-        };
-    });
-}
-
-/**
- * Pre-built scenario comparison: LOW / MID / HIGH cert prices.
- * Uses the same base config but varies certPriceScenario.
- */
-export function compareCertPriceScenarios(baseConfig) {
-    return compareScenarios(baseConfig, [
-        { name: 'low', label: 'Low Carbon Price', color: '#22c55e', overrides: { certPriceScenario: 'LOW' } },
-        { name: 'mid', label: 'Mid Carbon Price', color: '#f59e0b', overrides: { certPriceScenario: 'MID' } },
-        { name: 'high', label: 'High Carbon Price', color: '#ef4444', overrides: { certPriceScenario: 'HIGH' } },
-    ]);
-}

@@ -2,7 +2,11 @@ import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { calcEmissionBlock, GWP_AR6 } from '../engine/emissionEngine';
 import { validateFormula, extractVariables } from '../engine/formulaEvaluator';
+import { isIncomplete } from '../engine/qaEngine';
 import { PROCESS_TEMPLATES, getTemplatesByCategory } from '../data/processTemplates';
+import { fmtNum } from '../utils/formatUtils';
+import { SectionWorkflowBadge } from '../components/SectionWorkflowBadge';
+import { SectionWorkflowActions } from '../components/SectionWorkflowActions';
 import { FlaskConical, Plus, Trash2, ChevronDown, ChevronRight, Info, Beaker, Pencil, Check, X, AlertTriangle } from 'lucide-react';
 
 // ─── Gas color mapping ───────────────────────────────────────
@@ -167,26 +171,40 @@ export default function EmissionBlockPanel() {
         });
     };
 
+    const period = state.meta.periodStart && state.meta.periodEnd
+        ? `${state.meta.periodStart}_${state.meta.periodEnd}`
+        : '2025-01_2025-03';
+
+    // Lock fields if awaiting validation or approved
+    const isLocked = state.sectionWorkflows.process_emissions === 'AWAITING_VALIDATION' || state.sectionWorkflows.process_emissions === 'APPROVED';
+
     return (
-        <div className="card">
+        <div className={`card ${isLocked ? 'border-slate-300 bg-slate-50/30' : ''}`}>
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <FlaskConical size={20} className="text-purple-500" />
                     <h3 className="text-lg font-semibold text-slate-700">Process Emissions — Formula Builder (Scope 1)</h3>
+                    <SectionWorkflowBadge
+                        section="process_emissions"
+                        currentStatus={state.sectionWorkflows.process_emissions}
+                        period={period}
+                    />
                 </div>
                 <div className="flex items-center gap-4">
                     <span className="text-sm font-mono text-slate-500">
-                        Total: <strong className="text-purple-700">{totalCO2e.toFixed(1)} tCO₂e</strong>
+                        Total: <strong className="text-purple-700">{fmtNum(totalCO2e, 1)} tCO₂e</strong>
                         <span className="text-xs ml-1 text-slate-400">({emissionBlocks.length} blocks)</span>
                     </span>
-                    <button
-                        className="btn ghost small"
-                        onClick={() => setShowTemplateSelector(!showTemplateSelector)}
-                    >
-                        <Plus size={14} className="inline mr-1" />
-                        Add Block
-                    </button>
+                    {!isLocked && (
+                        <button
+                            className="btn-primary btn-sm"
+                            onClick={() => setShowTemplateSelector(!showTemplateSelector)}
+                        >
+                            <Plus size={14} className="inline mr-1" />
+                            Add Block
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -250,7 +268,7 @@ export default function EmissionBlockPanel() {
                                     {period}
                                 </span>
                                 <span className="font-mono text-slate-400">
-                                    {blocks.reduce((s, b) => s + (blockResults[b.id]?.co2e || 0), 0).toFixed(1)} tCO₂e
+                                    {fmtNum(blocks.reduce((s, b) => s + (blockResults[b.id]?.co2e || 0), 0), 1)} tCO₂e
                                 </span>
                             </div>
                             <div className="space-y-2">
@@ -288,18 +306,20 @@ export default function EmissionBlockPanel() {
                                                         <span className="text-xs text-red-500 font-mono">Error: {result.error}</span>
                                                     ) : (
                                                         <span className={`font-mono font-semibold text-sm ${gasColor.text}`}>
-                                                            {result.tonnes.toFixed(2)} t {block.outputGas}
+                                                            {fmtNum(result.tonnes, 2)} t {block.outputGas}
                                                             <span className="text-slate-400 font-normal mx-1">→</span>
-                                                            {result.co2e.toFixed(1)} tCO₂e
+                                                            {fmtNum(result.co2e, 1)} tCO₂e
                                                         </span>
                                                     )}
-                                                    <button
-                                                        className="btn ghost small danger-hover p-1"
-                                                        onClick={(e) => { e.stopPropagation(); deleteBlock(block.id); }}
-                                                        title="Remove block"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
+                                                    {!isLocked && (
+                                                        <button
+                                                            className="btn-icon-danger"
+                                                            onClick={(e) => { e.stopPropagation(); deleteBlock(block.id); }}
+                                                            title="Remove block"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -316,16 +336,18 @@ export default function EmissionBlockPanel() {
                                                         {/* Edit mode toggle */}
                                                         <div className="flex items-center justify-between mb-3">
                                                             <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Formula</div>
-                                                            <button
-                                                                className={`text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors ${isEditing ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                                                    }`}
-                                                                onClick={() => toggleEdit(block.id)}
-                                                            >
-                                                                {isEditing ? <><Check size={12} /> Done</> : <><Pencil size={12} /> Edit</>}
-                                                            </button>
+                                                            {!isLocked && (
+                                                                <button
+                                                                    className={`text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors ${isEditing ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                                                        }`}
+                                                                    onClick={() => toggleEdit(block.id)}
+                                                                >
+                                                                    {isEditing ? <><Check size={12} /> Done</> : <><Pencil size={12} /> Edit</>}
+                                                                </button>
+                                                            )}
                                                         </div>
 
-                                                        {isEditing ? (
+                                                        {isEditing && !isLocked ? (
                                                             /* ═══ EDIT MODE ═══ */
                                                             <div className="space-y-3">
                                                                 {/* Block name */}
@@ -369,8 +391,8 @@ export default function EmissionBlockPanel() {
                                                                                     <span className="text-[10px] text-slate-300 italic">none detected</span>
                                                                                 ) : formulaVars.map(v => (
                                                                                     <span key={v} className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${paramKeys.includes(v)
-                                                                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                                                                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                                                        : 'bg-amber-50 text-amber-700 border border-amber-200'
                                                                                         }`}>
                                                                                         {v}{!paramKeys.includes(v) && ' ⚠'}
                                                                                     </span>
@@ -512,8 +534,9 @@ export default function EmissionBlockPanel() {
                                                                                         type="number"
                                                                                         step="any"
                                                                                         value={param.value ?? 0}
-                                                                                        className="input-cell font-mono text-sm w-full"
+                                                                                        className={`input-cell font-mono text-sm w-full ${isIncomplete(param.value) ? '!border-amber-400 !bg-amber-50' : ''}`}
                                                                                         onChange={(e) => updateParam(block.id, param.key, e.target.value)}
+                                                                                        disabled={isLocked}
                                                                                     />
                                                                                     <span className="text-[9px] text-slate-400 mt-0.5 block">{param.unit}</span>
                                                                                 </div>
@@ -573,6 +596,13 @@ export default function EmissionBlockPanel() {
                     <br />
                     <span className="text-xs">Supports all CBAM sectors: Aluminium, Cement, Iron & Steel, Fertilisers, Hydrogen.</span>
                 </div>
+            )}
+
+            {emissionBlocks.length > 0 && (
+                <SectionWorkflowActions
+                    section="process_emissions"
+                    period={period}
+                />
             )}
 
             <div className="mt-3 flex items-start gap-2 text-xs text-slate-400">

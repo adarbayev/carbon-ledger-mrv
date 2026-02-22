@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS installations (
   period_start TEXT,
   period_end TEXT,
   workflow_status TEXT DEFAULT 'DRAFT',
+  is_final_producer INTEGER DEFAULT 1,
   reviewer_name TEXT,
   review_date TEXT,
   submit_date TEXT,
@@ -37,6 +38,18 @@ CREATE TABLE IF NOT EXISTS processes (
   active INTEGER DEFAULT 1
 );
 
+-- Section workflows
+CREATE TABLE IF NOT EXISTS section_workflows (
+  id TEXT PRIMARY KEY,
+  installation_id TEXT REFERENCES installations(id),
+  period TEXT NOT NULL,
+  section TEXT NOT NULL,
+  status TEXT DEFAULT 'DRAFT',
+  updated_by TEXT DEFAULT 'user',
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sw_unique ON section_workflows(installation_id, period, section);
+
 -- ─── Versioned Activity Data ─────────────────────────────────
 
 -- Fuel combustion entries (versioned)
@@ -44,6 +57,7 @@ CREATE TABLE IF NOT EXISTS fuel_entries (
   version_id TEXT PRIMARY KEY,
   stable_id TEXT NOT NULL,
   version_number INTEGER DEFAULT 1,
+  installation_id TEXT REFERENCES installations(id),
   period TEXT NOT NULL,
   process_id TEXT REFERENCES processes(id),
   fuel_type_id TEXT NOT NULL,
@@ -67,6 +81,7 @@ CREATE TABLE IF NOT EXISTS electricity_entries (
   version_id TEXT PRIMARY KEY,
   stable_id TEXT NOT NULL,
   version_number INTEGER DEFAULT 1,
+  installation_id TEXT REFERENCES installations(id),
   period TEXT NOT NULL,
   process_id TEXT REFERENCES processes(id),
   mwh REAL DEFAULT 0,
@@ -87,6 +102,7 @@ CREATE TABLE IF NOT EXISTS process_events (
   version_id TEXT PRIMARY KEY,
   stable_id TEXT NOT NULL,
   version_number INTEGER DEFAULT 1,
+  installation_id TEXT REFERENCES installations(id),
   period TEXT NOT NULL,
   process_id TEXT REFERENCES processes(id),
   event_type TEXT NOT NULL,
@@ -138,6 +154,7 @@ CREATE TABLE IF NOT EXISTS production_output (
   version_id TEXT PRIMARY KEY,
   stable_id TEXT NOT NULL,
   version_number INTEGER DEFAULT 1,
+  installation_id TEXT REFERENCES installations(id),
   period TEXT NOT NULL,
   product_id TEXT REFERENCES products(id),
   process_id TEXT REFERENCES processes(id),
@@ -150,6 +167,19 @@ CREATE TABLE IF NOT EXISTS production_output (
 );
 
 CREATE INDEX IF NOT EXISTS idx_po_stable ON production_output(stable_id, version_number);
+
+-- Precursors assigned to products
+CREATE TABLE IF NOT EXISTS precursors (
+  id TEXT PRIMARY KEY,
+  product_id TEXT REFERENCES products(id),
+  name TEXT,
+  cn_code TEXT,
+  mass REAL DEFAULT 0,
+  see REAL DEFAULT 0,
+  source_type TEXT DEFAULT 'actual',
+  source_installation_id TEXT REFERENCES installations(id),
+  source_product_id TEXT REFERENCES products(id)
+);
 
 -- ─── Reference Data ──────────────────────────────────────────
 

@@ -8,8 +8,9 @@ import React, { createContext, useContext, useReducer, useEffect, useState, useC
 import { initDatabase, persistDatabase, resetDatabase } from '../db/database.js';
 import { seedDemoData } from '../db/seed.js';
 import * as DAL from '../db/dal.js';
-import { getCnCodeInfo } from '../data/referenceData';
+import { getCnCodeInfo, getGridEf } from '../data/referenceData';
 import { getDefaultScope } from '../data/cbamReferenceData';
+import { getAutoScope } from '../data/cbamDefaultValues';
 
 const AppContext = createContext();
 
@@ -17,26 +18,60 @@ const AppContext = createContext();
 // Reads all tables and builds a state object matching the shape
 // that existing views expect.
 
-function buildStateFromDB() {
-    const installation = DAL.getInstallation('default');
-    const boundaries = DAL.getBoundaries('default');
-    const processes = DAL.getProcesses('default');
-    const fuels = DAL.getFuelEntries();
-    const electricity = DAL.getElectricityEntries();
-    const processEvents = DAL.getProcessEvents();
-    const emissionBlocks = DAL.getEmissionBlocks('default');
-    const products = DAL.getProducts('default');
-    const productionOutput = DAL.getProductionOutput();
-    const cbamSettings = DAL.getCbamSettings();
-    const allocSettings = DAL.getAllocationSettings();
+function buildStateFromDB(installationId = 'default') {
+    const installation = DAL.getInstallation(installationId);
+    const boundaries = DAL.getBoundaries(installationId);
+    const processes = DAL.getProcesses(installationId);
+    const fuels = DAL.getFuelEntries(installationId);
+    const electricity = DAL.getElectricityEntries(installationId);
+    const processEvents = DAL.getProcessEvents(installationId);
+    const emissionBlocks = DAL.getEmissionBlocks(installationId);
+    const products = DAL.getProducts(installationId);
+    const productionOutput = DAL.getProductionOutput(installationId);
+    const cbamSettings = DAL.getCbamSettings(installationId);
+    const allocSettings = DAL.getAllocationSettings(installationId);
+
+    // Get section workflows for the current period
+    // The period is determined by the installation metadata
+    const period = installation ? `${installation.period_start}_${installation.period_end}` : '2025-01_2025-03';
+    const sectionWorkflowsDb = DAL.getSectionWorkflows(installationId, period) || [];
+    const sectionWorkflows = {
+        fuels: 'DRAFT',
+        electricity: 'DRAFT',
+        process_emissions: 'DRAFT'
+    };
+    sectionWorkflowsDb.forEach(sw => {
+        sectionWorkflows[sw.section] = sw.status;
+    });
+
+    // Load all installations for the switcher list
+    const installationsList = DAL.getInstallations().map(inst => ({
+        id: inst.id,
+        name: inst.name,
+        country: inst.country,
+        isFinalProducer: inst.is_final_producer === 1
+    }));
+
+    const crossSiteProducts = DAL.getCrossSiteProducts(installationId).map(p => ({
+        id: p.id,
+        installationId: p.installation_id,
+        installationName: p.installation_name,
+        name: p.name,
+        cnCode: p.cn_code,
+        isResidue: !!p.is_residue
+    }));
 
     // Map DB rows to view-compatible shapes
     return {
+        activeInstallationId: installationId,
+        installationsList: installationsList,
+        crossSiteProducts: crossSiteProducts,
         meta: installation ? {
             installationName: installation.name,
             country: installation.country,
             periodStart: installation.period_start,
             periodEnd: installation.period_end,
+            isFinalProducer: installation.is_final_producer === 1,
             workflowStatus: installation.workflow_status || 'DRAFT',
             reviewerName: installation.reviewer_name || '',
             reviewDate: installation.review_date || '',
@@ -44,22 +79,43 @@ function buildStateFromDB() {
             lastSaved: null,
         } : {
             installationName: 'New Installation',
-            country: 'KZ',
+            country: 'KAZ',
             periodStart: '2025-01',
             periodEnd: '2025-03',
+            isFinalProducer: true,
             workflowStatus: 'DRAFT',
             reviewerName: '',
             reviewDate: '',
             submitDate: '',
             lastSaved: null,
         },
-        boundaries: boundaries.map(b => ({
-            id: b.id,
-            name: b.name,
-            included: !!b.included,
-            notes: b.notes || '',
-            evidence: b.evidence || '',
-        })),
+        boundaries: boundaries.length > 0 ? boundaries.map(b => {
+            // Map legacy names to translation keys
+            const nameKeyMap = {
+                'Electrolysis potlines': 'electrolysis',
+                'Casting & ingot line': 'casting',
+                'Off-gas collection & dry scrubbing': 'scrubbing',
+                'Fuel combustion (boilers/heaters)': 'combustion',
+                'Anode baking plant': 'anode',
+                'Grid electricity import': 'grid'
+            };
+            const key = nameKeyMap[b.name];
+            return {
+                id: b.id,
+                key: key,
+                name: b.name,
+                included: !!b.included,
+                notes: b.notes || '',
+                evidence: b.evidence || '',
+            };
+        }) : [
+            { id: 'b1', key: 'electrolysis', name: 'Electrolysis potlines', included: true, notes: '', evidence: '' },
+            { id: 'b2', key: 'casting', name: 'Casting & ingot line', included: true, notes: '', evidence: '' },
+            { id: 'b3', key: 'scrubbing', name: 'Off-gas collection & dry scrubbing', included: true, notes: '', evidence: '' },
+            { id: 'b4', key: 'combustion', name: 'Fuel combustion (boilers/heaters)', included: true, notes: '', evidence: '' },
+            { id: 'b5', key: 'anode', name: 'Anode baking plant', included: false, notes: 'Not required for CBAM ingots (simple goods)', evidence: '' },
+            { id: 'b6', key: 'grid', name: 'Grid electricity import', included: true, notes: '', evidence: '' },
+        ],
         processes: processes.map(p => ({
             id: p.id,
             name: p.name,
@@ -125,14 +181,28 @@ function buildStateFromDB() {
             source: eb.source || '',
             notes: eb.notes || '',
         })),
-        products: products.map(p => ({
-            id: p.id,
-            name: p.name,
-            quantity: 0,  // Will be summed from production output below
-            isResidue: !!p.is_residue,
-            cnCode: p.cn_code || '',
-            precursors: [],
-        })),
+        products: products.map(p => {
+            const precursors = DAL.getPrecursors(p.id).map(pc => ({
+                id: pc.id,
+                productId: pc.product_id,
+                name: pc.name,
+                cnCode: pc.cn_code,
+                mass: pc.mass || 0,
+                see: pc.see || 0,
+                sourceType: pc.source_type || 'actual',
+                sourceInstallationId: pc.source_installation_id || null,
+                sourceProductId: pc.source_product_id || null
+            }));
+
+            return {
+                id: p.id,
+                name: p.name,
+                quantity: 0,  // Will be summed from production output below
+                isResidue: !!p.is_residue,
+                cnCode: p.cn_code || '',
+                precursors: precursors,
+            };
+        }),
         productionOutput: productionOutput.map(po => ({
             id: po.stable_id,
             period: po.period,
@@ -146,23 +216,30 @@ function buildStateFromDB() {
             method: allocSettings?.method || 'mass',
             treatResidueAsWaste: !!(allocSettings?.treat_residue_as_waste),
         },
-        cbamSettings: cbamSettings ? {
-            basis: cbamSettings.basis || 'ACTUAL',
-            scope: cbamSettings.scope || 'DIRECT_ONLY',
-            certPriceScenario: cbamSettings.cert_price_scenario || 'MID',
-            alPriceScenario: cbamSettings.al_price_scenario || 'MID',
-            carbonCreditEligible: !!cbamSettings.carbon_credit_eligible,
-            carbonCreditScenario: cbamSettings.carbon_credit_scenario || 'HIGH',
-            importedQty: cbamSettings.imported_qty || 110000,
-            cnCode: cbamSettings.cn_code || '7601',
-            goodCategory: cbamSettings.good_category || 'Aluminium',
-        } : {
-            basis: 'ACTUAL', scope: 'DIRECT_ONLY', certPriceScenario: 'MID',
+        // ... (lines 168-169)
+        cbamSettings: cbamSettings ? (() => {
+            // Clean CN code for lookup
+            const rawCn = cbamSettings?.cn_code || '7601';
+            const cleanCn = String(rawCn).replace(/[^0-9]/g, '');
+            return {
+                basis: cbamSettings.basis || 'ACTUAL',
+                scope: getAutoScope(cleanCn),
+                certPriceScenario: cbamSettings.cert_price_scenario || 'MID',
+                alPriceScenario: cbamSettings.al_price_scenario || 'MID',
+                carbonCreditEligible: !!cbamSettings.carbon_credit_eligible,
+                carbonCreditScenario: cbamSettings.carbon_credit_scenario || 'HIGH',
+                importedQty: cbamSettings.imported_qty || 110000,
+                cnCode: rawCn,
+                goodCategory: cbamSettings.good_category || 'Aluminium',
+            };
+        })() : {
+            basis: 'ACTUAL', scope: getAutoScope('7601'), certPriceScenario: 'MID',
             alPriceScenario: 'MID', carbonCreditEligible: true, carbonCreditScenario: 'HIGH',
             importedQty: 110000, cnCode: '7601', goodCategory: 'Aluminium',
         },
         isDirty: false,
         activeTab: 'dashboard',
+        sectionWorkflows: sectionWorkflows,
     };
 }
 
@@ -211,13 +288,42 @@ const reducer = (state, action) => {
             }
             return markDirty({ ...state, meta: updatedMeta });
         }
+        case 'SET_SECTION_WORKFLOW_STATUS': {
+            const { period, section, status } = action.payload;
+            return markDirty({
+                ...state,
+                sectionWorkflows: {
+                    ...state.sectionWorkflows,
+                    [section]: status
+                }
+            });
+        }
 
         // --- META ---
-        case 'UPDATE_META':
-            return markDirty({
+        case 'UPDATE_META': {
+            const newState = markDirty({
                 ...state,
                 meta: { ...state.meta, [action.payload.field]: action.payload.value }
             });
+
+            // Auto-sync: If country changes, update all electricity entries that haven't been overridden
+            if (action.payload.field === 'country') {
+                const newCountry = action.payload.value;
+                const newEf = getGridEf(newCountry);
+
+                newState.activity = {
+                    ...newState.activity,
+                    electricity: newState.activity.electricity.map(e => {
+                        // Only update if EF hasn't been manually overridden
+                        if (!e.efOverride) {
+                            return { ...e, gridCountry: newCountry, ef: newEf };
+                        }
+                        return e;
+                    })
+                };
+            }
+            return newState;
+        }
 
         // --- BOUNDARIES ---
         case 'UPDATE_BOUNDARY':
@@ -399,7 +505,7 @@ const reducer = (state, action) => {
                             ...state.cbamSettings,
                             cnCode: action.payload.value.replace(/\s/g, '').substring(0, 4),
                             goodCategory: sector,
-                            scope: getDefaultScope(sector),
+                            scope: getAutoScope(action.payload.value),
                         };
                     }
                 }
@@ -490,45 +596,58 @@ const reducer = (state, action) => {
 // Synchronizes React state changes back to SQLite
 
 function syncToDAL(action, state) {
+    const instId = state.activeInstallationId || 'default';
     try {
         switch (action.type) {
             case 'UPDATE_META': {
                 const meta = { ...state.meta, [action.payload.field]: action.payload.value };
                 DAL.saveInstallation({
-                    id: 'default',
+                    id: instId,
                     name: meta.installationName,
                     country: meta.country,
                     periodStart: meta.periodStart,
                     periodEnd: meta.periodEnd,
+                    isFinalProducer: meta.isFinalProducer,
+                });
+                break;
+            }
+            case 'SET_SECTION_WORKFLOW_STATUS': {
+                DAL.saveSectionWorkflow({
+                    installationId: instId,
+                    period: action.payload.period,
+                    section: action.payload.section,
+                    status: action.payload.status,
+                    updatedBy: 'user'
                 });
                 break;
             }
             case 'UPDATE_BOUNDARY':
                 DAL.saveBoundary({
                     id: action.payload.id,
+                    installationId: instId,
                     [action.payload.field]: action.payload.value,
                     ...state.boundaries.find(b => b.id === action.payload.id),
                 });
                 break;
             case 'ADD_PROCESS':
-                DAL.saveProcess(action.payload);
+                DAL.saveProcess({ ...action.payload, installationId: instId });
                 break;
             case 'UPDATE_PROCESS': {
                 const proc = state.processes.find(p => p.id === action.payload.id);
-                if (proc) DAL.saveProcess({ ...proc, [action.payload.field]: action.payload.value });
+                if (proc) DAL.saveProcess({ ...proc, installationId: instId, [action.payload.field]: action.payload.value });
                 break;
             }
             case 'DELETE_PROCESS':
                 DAL.deleteProcess(action.payload);
                 break;
             case 'ADD_FUEL':
-                DAL.saveFuelEntry(action.payload);
+                DAL.saveFuelEntry({ ...action.payload, installationId: instId });
                 break;
             case 'UPDATE_FUEL': {
                 const fuel = state.activity.fuels.find(f => f.id === action.payload.id);
                 if (fuel) {
                     const updated = { ...fuel, [action.payload.field]: action.payload.value };
-                    DAL.saveFuelEntry({ stableId: updated.id, ...updated });
+                    DAL.saveFuelEntry({ stableId: updated.id, installationId: instId, ...updated });
                 }
                 break;
             }
@@ -536,13 +655,13 @@ function syncToDAL(action, state) {
                 DAL.deleteFuelEntry(action.payload);
                 break;
             case 'ADD_ELEC':
-                DAL.saveElectricityEntry(action.payload);
+                DAL.saveElectricityEntry({ ...action.payload, installationId: instId });
                 break;
             case 'UPDATE_ELEC': {
                 const elec = state.activity.electricity.find(e => e.id === action.payload.id);
                 if (elec) {
                     const updated = { ...elec, [action.payload.field]: action.payload.value };
-                    DAL.saveElectricityEntry({ stableId: updated.id, ...updated });
+                    DAL.saveElectricityEntry({ stableId: updated.id, installationId: instId, ...updated });
                 }
                 break;
             }
@@ -550,13 +669,13 @@ function syncToDAL(action, state) {
                 DAL.deleteElectricityEntry(action.payload);
                 break;
             case 'ADD_PROCESS_EVENT':
-                DAL.saveProcessEvent(action.payload);
+                DAL.saveProcessEvent({ ...action.payload, installationId: instId });
                 break;
             case 'UPDATE_PROCESS_EVENT': {
                 const pe = (state.processEvents || []).find(p => p.id === action.payload.id);
                 if (pe) {
                     const updated = { ...pe, [action.payload.field]: action.payload.value };
-                    DAL.saveProcessEvent({ stableId: updated.id, ...updated });
+                    DAL.saveProcessEvent({ stableId: updated.id, installationId: instId, ...updated });
                 }
                 break;
             }
@@ -564,11 +683,11 @@ function syncToDAL(action, state) {
                 DAL.deleteProcessEvent(action.payload);
                 break;
             case 'ADD_EMISSION_BLOCK':
-                DAL.saveEmissionBlock(action.payload);
+                DAL.saveEmissionBlock({ ...action.payload, installationId: instId });
                 break;
             case 'UPDATE_EMISSION_BLOCK': {
                 const eb = (state.emissionBlocks || []).find(b => b.id === action.payload.id);
-                if (eb) DAL.updateEmissionBlock(action.payload.id, { ...eb, ...action.payload.data });
+                if (eb) DAL.updateEmissionBlock(action.payload.id, { ...eb, ...action.payload.data, installationId: instId });
                 break;
             }
             case 'UPDATE_BLOCK_PARAM': {
@@ -577,7 +696,7 @@ function syncToDAL(action, state) {
                     const updatedParams = blk.parameters.map(p =>
                         p.key === action.payload.paramKey ? { ...p, value: parseFloat(action.payload.value) || 0 } : p
                     );
-                    DAL.updateEmissionBlock(blk.id, { ...blk, parameters: updatedParams });
+                    DAL.updateEmissionBlock(blk.id, { ...blk, parameters: updatedParams, installationId: instId });
                 }
                 break;
             }
@@ -585,21 +704,53 @@ function syncToDAL(action, state) {
                 DAL.deleteEmissionBlock(action.payload);
                 break;
             case 'ADD_PRODUCT':
-                DAL.saveProduct(action.payload);
+                if (action.payload) DAL.saveProduct({ ...action.payload, installationId: instId });
                 break;
             case 'UPDATE_PRODUCT': {
                 const prod = state.products.find(p => p.id === action.payload.id);
-                if (prod) DAL.saveProduct({ ...prod, [action.payload.field]: action.payload.value });
+                if (prod) DAL.saveProduct({ ...prod, installationId: instId, [action.payload.field]: action.payload.value });
                 break;
             }
             case 'DELETE_PRODUCT':
                 DAL.deleteProduct(action.payload);
                 break;
+            case 'ADD_PRECURSOR': {
+                const { productId, precursorId, name } = action.payload;
+                DAL.savePrecursor({
+                    id: precursorId,
+                    productId: productId,
+                    name: name,
+                    cnCode: '',
+                    mass: 0,
+                    see: 0,
+                    sourceType: 'actual',
+                    sourceInstallationId: null,
+                    sourceProductId: null
+                });
+                break;
+            }
+            case 'UPDATE_PRECURSOR': {
+                const { productId, precursorId, field, value } = action.payload;
+                const prod = state.products.find(p => p.id === productId);
+                const prec = (prod?.precursors || []).find(pc => pc.id === precursorId);
+                if (prec) {
+                    const updatedPrec = {
+                        ...prec,
+                        [field]: ['mass', 'see'].includes(field) ? (parseFloat(value) || 0) : value
+                    };
+                    DAL.savePrecursor(updatedPrec);
+                }
+                break;
+            }
+            case 'DELETE_PRECURSOR': {
+                DAL.deletePrecursor(action.payload.precursorId);
+                break;
+            }
             case 'UPDATE_CBAM':
-                DAL.saveCbamSettings({ ...state.cbamSettings, [action.payload.field]: action.payload.value });
+                DAL.saveCbamSettings({ ...state.cbamSettings, installationId: instId, [action.payload.field]: action.payload.value });
                 break;
             case 'UPDATE_ALLOC_SETTINGS':
-                DAL.saveAllocationSettings({ ...state.allocationSettings, [action.payload.field]: action.payload.value });
+                DAL.saveAllocationSettings({ ...state.allocationSettings, installationId: instId, [action.payload.field]: action.payload.value });
                 break;
         }
     } catch (err) {
@@ -626,6 +777,7 @@ const emptyState = {
     },
     isDirty: false,
     activeTab: 'dashboard',
+    sectionWorkflows: { fuels: 'DRAFT', electricity: 'DRAFT', process_emissions: 'DRAFT' }
 };
 
 export const AppProvider = ({ children }) => {
@@ -656,6 +808,26 @@ export const AppProvider = ({ children }) => {
 
     // Dispatch wrapper that syncs to DAL
     const dispatch = useCallback((action) => {
+        if (action.type === 'SET_ACTIVE_INSTALLATION') {
+            const loaded = enrichProductQuantities(buildStateFromDB(action.payload));
+            rawDispatch({ type: 'LOAD_STATE', payload: loaded });
+            return;
+        }
+
+        if (action.type === 'ADD_INSTALLATION') {
+            const newId = `inst_${Date.now()}`;
+            DAL.saveInstallation({
+                id: newId,
+                name: action.payload.name || 'New Installation',
+                country: action.payload.country || 'KAZ',
+                periodStart: '2025-01',
+                periodEnd: '2025-12'
+            });
+            const loaded = enrichProductQuantities(buildStateFromDB(newId));
+            rawDispatch({ type: 'LOAD_STATE', payload: loaded });
+            return;
+        }
+
         rawDispatch(action);
         // Sync to SQLite (after React state update)
         if (dbReady) {

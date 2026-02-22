@@ -1,31 +1,36 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #059669;
-  --color-primary-hover: #047857;
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-light: #dbeafe;
 
-  --color-danger: #EF4444;
-  --color-danger-hover: #FEF2F2;
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+  --color-danger-light: #fef2f2;
 
-  --color-bg-app: #F1F5F9;
-  --color-bg-surface: #FFFFFF;
+  --color-bg-app: #f8fafc;
+  --color-bg-surface: #ffffff;
 
-  --color-text-main: #1E293B;
-  --color-text-muted: #64748B;
+  --color-text-main: #0f172a;
+  --color-text-muted: #64748b;
 
-  --color-border-light: #E2E8F0;
+  --color-border-light: #e2e8f0;
+  --color-border-focus: #93c5fd;
 
-  --color-warning-bg: #FEF3C7;
-  --color-warning-text: #B45309;
+  --color-warning-bg: #fef3c7;
+  --color-warning-text: #b45309;
+
+  --font-sans: Inter, system-ui, sans-serif;
 
   --spacing-xs: 0.25rem;
   --spacing-sm: 0.5rem;
   --spacing-md: 1rem;
   --spacing-lg: 1.5rem;
   --spacing-xl: 2rem;
-
-  --font-sans: "Inter", system-ui, sans-serif;
 }
+
+
 
 @layer base {
   body {
@@ -36,86 +41,115 @@
 
 @layer components {
 
-  /* App Shell - Legacy removed */
-
-  /* Components */
+  /* ═══ Buttons ═══════════════════════════════════════════════ */
   .btn {
-    @apply font-medium text-sm px-4 py-2 rounded-md transition-all duration-200 cursor-pointer;
+    @apply inline-flex items-center justify-center gap-2 font-medium text-sm px-4 py-2 rounded-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-1;
   }
 
-  .btn.primary {
-    @apply bg-primary text-white border border-primary hover:bg-primary-hover;
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 font-medium text-sm px-4 py-2 rounded-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-1 text-white shadow-sm focus:ring-primary/40 active:scale-[0.97];
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
   }
 
-  .btn.ghost {
-    @apply bg-transparent text-text-muted border border-transparent hover:text-text-main hover:bg-slate-50;
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    @apply shadow-md shadow-blue-500/20;
   }
 
-  .btn.small {
-    @apply px-2 py-1 text-xs;
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 font-medium text-sm px-4 py-2 rounded-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-1 bg-white text-text-main border border-border-light hover:bg-slate-50 hover:border-slate-300 focus:ring-slate-300 active:scale-[0.97];
   }
 
-  .danger-hover:hover {
-    color: var(--color-danger) !important;
-    background-color: #FEF2F2 !important;
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 font-medium text-sm px-4 py-2 rounded-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-1 text-danger bg-danger-light border border-red-200 hover:bg-red-100 hover:text-danger-hover hover:border-red-300 focus:ring-red-300 active:scale-[0.97];
   }
 
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 font-medium text-sm px-4 py-2 rounded-lg transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-1 bg-transparent text-text-muted border border-transparent hover:text-text-main hover:bg-slate-100 focus:ring-slate-300;
+  }
+
+  .btn-sm {
+    @apply text-xs px-3 py-1.5 rounded-md;
+  }
+
+  .btn-icon {
+    @apply inline-flex items-center justify-center w-8 h-8 rounded-lg text-text-muted hover:bg-slate-100 hover:text-text-main transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-300;
+  }
+
+  .btn-icon-danger {
+    @apply inline-flex items-center justify-center w-8 h-8 rounded-lg text-text-muted hover:bg-slate-100 hover:text-text-main transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-300 hover:bg-danger-light hover:text-danger;
+  }
+
+  /* ═══ Cards ═════════════════════════════════════════════════ */
   .card {
-    @apply bg-white border border-border-light rounded-lg p-lg mb-lg shadow-sm;
+    @apply bg-white border border-border-light rounded-xl p-lg mb-lg;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
   }
 
+  .card-gradient {
+    @apply bg-white border border-border-light rounded-xl p-lg mb-lg border-0;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  }
+
+  /* ═══ Badges ════════════════════════════════════════════════ */
   .badge {
-    @apply text-xs font-semibold px-2 py-[2px] rounded-full uppercase;
+    @apply text-xs font-semibold px-2.5 py-0.5 rounded-full;
   }
 
-  .badge.warning {
+  .badge-warning {
     @apply bg-warning-bg text-warning-text;
   }
 
-  .badge.success {
-    @apply bg-green-100 text-green-700;
+  .badge-success {
+    @apply bg-emerald-50 text-emerald-700;
   }
 
-  .badge.neutral {
+  .badge-neutral {
     @apply bg-slate-100 text-slate-600;
   }
 
-  /* Forms */
+  .badge-info {
+    @apply bg-blue-50 text-blue-700;
+  }
+
+  /* ═══ Forms ═════════════════════════════════════════════════ */
   .input-cell {
-    @apply w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 
-           focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary focus:border-transparent
-           transition-all duration-150;
+    @apply w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-150 text-sm;
   }
 
   .input-highlight {
-    @apply w-full bg-blue-50 border-2 border-blue-200 rounded-lg px-3 py-2 
-           font-mono text-base font-semibold text-blue-900
-           focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent
-           transition-all duration-150;
+    @apply w-full bg-blue-50/50 border-2 border-blue-200 rounded-lg px-3 py-2 font-mono text-base font-semibold text-blue-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-150;
   }
 
+  .form-input,
+  .form-select,
   input[type="text"],
   input[type="number"],
   input[type="month"],
   select {
-    @apply w-full p-2 border border-border-light rounded font-sans text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+    @apply w-full p-2 border border-border-light rounded-lg font-sans text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-150;
   }
 
-  /* Tables */
+  /* ═══ Tables ════════════════════════════════════════════════ */
   table {
     @apply w-full border-collapse text-sm;
   }
 
   th {
-    @apply text-left p-2 border-b-2 border-border-light text-text-muted font-semibold;
+    @apply text-left p-2.5 border-b-2 border-slate-200 text-text-muted font-semibold text-xs uppercase tracking-wider;
   }
 
   td {
-    @apply p-2 border-b border-border-light align-middle;
+    @apply p-2.5 border-b border-slate-100 align-middle;
   }
 
   tr:last-child td {
     @apply border-b-0;
+  }
+
+  tr:hover td {
+    @apply bg-slate-50/50;
   }
 
   .row-muted {
@@ -126,21 +160,13 @@
     @apply text-text-muted bg-slate-50;
   }
 
-  /* Utils */
-  .nav-tab {
-    @apply bg-none border-none font-[inherit] text-sm font-medium text-text-muted cursor-pointer pb-1 border-b-2 border-transparent transition-all;
-  }
-
-  .nav-tab:hover {
-    @apply text-text-main;
-  }
-
-  .nav-tab.active {
-    @apply text-primary border-primary;
+  /* ═══ Layout ════════════════════════════════════════════════ */
+  .view-header {
+    @apply flex items-center justify-between mb-lg;
   }
 
   .section-title {
-    @apply text-2xl font-semibold mb-lg;
+    @apply text-xl font-semibold text-text-main;
   }
 
   .divider {
@@ -155,7 +181,11 @@
     @apply font-bold mt-md pt-sm border-t border-border-light;
   }
 
-  /* Toggle Switch */
+  .empty-state {
+    @apply text-center text-text-muted p-xl border-2 border-dashed border-border-light rounded-xl;
+  }
+
+  /* ═══ Toggle Switch ═════════════════════════════════════════ */
   .switch {
     @apply relative inline-block w-9 h-5;
   }
@@ -165,19 +195,11 @@
   }
 
   .slider {
-    @apply absolute cursor-pointer inset-0 bg-slate-300 transition-all duration-300;
+    @apply absolute cursor-pointer inset-0 bg-slate-300 transition-all duration-300 rounded-full;
   }
 
   .slider:before {
-    @apply absolute content-[''] h-4 w-4 left-[2px] bottom-[2px] bg-white transition-all duration-300;
-  }
-
-  .slider.round {
-    @apply rounded-full;
-  }
-
-  .slider.round:before {
-    @apply rounded-full;
+    @apply absolute content-[''] h-4 w-4 left-[2px] bottom-[2px] bg-white transition-all duration-300 rounded-full shadow-sm;
   }
 
   input:checked+.slider {
@@ -188,9 +210,9 @@
     @apply translate-x-4;
   }
 
-  /* Stack Bar */
+  /* ═══ Stack Bar ═════════════════════════════════════════════ */
   .stack-bar {
-    @apply flex w-full h-6 bg-slate-200 rounded overflow-hidden mt-2;
+    @apply flex w-full h-6 bg-slate-200 rounded-lg overflow-hidden mt-2;
   }
 
   .stack-segment {
@@ -198,24 +220,38 @@
   }
 
   .stack-segment.direct {
-    @apply bg-primary;
-  }
-
-  .stack-segment.indirect {
     @apply bg-blue-500;
   }
 
-  /* Toasts */
+  .stack-segment.indirect {
+    @apply bg-cyan-500;
+  }
+
+  /* ═══ Toasts ════════════════════════════════════════════════ */
   .toast-container {
     @apply fixed top-5 right-5 z-50;
   }
 
   .toast {
-    @apply bg-slate-800 text-white py-3 px-6 rounded-md shadow-lg flex items-center gap-3 animate-[slideIn_0.3s_ease-out];
+    @apply bg-slate-800 text-white py-3 px-6 rounded-lg shadow-lg flex items-center gap-3 animate-[slideIn_0.3s_ease-out];
   }
 
-  .empty-state {
-    @apply text-center text-text-muted p-xl border-2 border-dashed border-border-light rounded-lg;
+  /* ═══ Scrollbar ═════════════════════════════════════════════ */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400;
   }
 }
 

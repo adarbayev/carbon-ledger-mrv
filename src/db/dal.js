@@ -43,17 +43,25 @@ export function getAuditEntityTypes() {
 /**
  * Get the latest version of each record in a versioned table for a period.
  */
-function getLatestVersions(table, periodFilter = null) {
+function getLatestVersions(table, installationIdFilter = 'default', periodFilter = null) {
+    let whereClauses = ['installation_id = ?'];
+    let params = [installationIdFilter];
+    if (periodFilter) {
+        whereClauses.push('period = ?');
+        params.push(periodFilter);
+    }
+    const whereSql = 'WHERE ' + whereClauses.join(' AND ');
+
     let sql = `
         SELECT t.* FROM ${table} t
         INNER JOIN (
             SELECT stable_id, MAX(version_number) as max_v
             FROM ${table}
-            ${periodFilter ? 'WHERE period = ?' : ''}
+            ${whereSql}
             GROUP BY stable_id
         ) latest ON t.stable_id = latest.stable_id AND t.version_number = latest.max_v
     `;
-    return query(sql, periodFilter ? [periodFilter] : []);
+    return query(sql, params);
 }
 
 /**
@@ -82,6 +90,10 @@ function insertVersion(table, entityType, stableId, data, userId = 'user') {
 
 // ─── Installation ────────────────────────────────────────────
 
+export function getInstallations() {
+    return query('SELECT * FROM installations ORDER BY created_at ASC');
+}
+
 export function getInstallation(id = 'default') {
     const results = query('SELECT * FROM installations WHERE id = ?', [id]);
     return results[0] || null;
@@ -91,14 +103,14 @@ export function saveInstallation(data) {
     const existing = getInstallation(data.id || 'default');
     if (existing) {
         execute(
-            'UPDATE installations SET name = ?, country = ?, period_start = ?, period_end = ? WHERE id = ?',
-            [data.name, data.country, data.periodStart, data.periodEnd, data.id || 'default']
+            'UPDATE installations SET name = ?, country = ?, period_start = ?, period_end = ?, is_final_producer = ? WHERE id = ?',
+            [data.name, data.country, data.periodStart, data.periodEnd, (data.isFinalProducer ? 1 : 0), data.id || 'default']
         );
         logAudit({ entityType: 'installation', entityId: data.id || 'default', action: 'UPDATE' });
     } else {
         execute(
-            'INSERT INTO installations (id, name, country, period_start, period_end) VALUES (?, ?, ?, ?, ?)',
-            [data.id || 'default', data.name, data.country, data.periodStart, data.periodEnd]
+            'INSERT INTO installations (id, name, country, period_start, period_end, is_final_producer) VALUES (?, ?, ?, ?, ?, ?)',
+            [data.id || 'default', data.name, data.country, data.periodStart, data.periodEnd, (data.isFinalProducer ? 1 : 0)]
         );
         logAudit({ entityType: 'installation', entityId: data.id || 'default', action: 'CREATE' });
     }
@@ -168,18 +180,20 @@ export function deleteProcess(id) {
 
 // ─── Fuel Entries (Versioned) ────────────────────────────────
 
-export function getFuelEntries(period = null) {
+export function getFuelEntries(installationId = 'default', period = null) {
     if (period) {
-        return getLatestVersions('fuel_entries', period);
+        return getLatestVersions('fuel_entries', installationId, period);
     }
     // Get latest version of each entry regardless of period
     return query(`
         SELECT t.* FROM fuel_entries t
         INNER JOIN (
             SELECT stable_id, MAX(version_number) as max_v
-            FROM fuel_entries GROUP BY stable_id
+            FROM fuel_entries 
+            WHERE installation_id = ?
+            GROUP BY stable_id
         ) latest ON t.stable_id = latest.stable_id AND t.version_number = latest.max_v
-    `);
+    `, [installationId]);
 }
 
 export function saveFuelEntry(data, userId = 'user') {
@@ -187,9 +201,9 @@ export function saveFuelEntry(data, userId = 'user') {
     const { versionId, versionNumber, prevVersionId } = insertVersion('fuel_entries', 'fuel_entry', stableId, data, userId);
 
     execute(
-        `INSERT INTO fuel_entries (version_id, stable_id, version_number, period, process_id, fuel_type_id, quantity, unit, custom_ncv, custom_ef_co2, custom_ef_ch4, custom_ef_n2o, evidence, notes, created_by, supersedes_version_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [versionId, stableId, versionNumber, data.period, data.processId, data.fuelTypeId, data.quantity || 0, data.unit || 't', data.customNcv || null, data.customEfCo2 || null, data.customEfCh4 || null, data.customEfN2o || null, data.evidence || '', data.notes || '', userId, prevVersionId]
+        `INSERT INTO fuel_entries (version_id, stable_id, version_number, installation_id, period, process_id, fuel_type_id, quantity, unit, custom_ncv, custom_ef_co2, custom_ef_ch4, custom_ef_n2o, evidence, notes, created_by, supersedes_version_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [versionId, stableId, versionNumber, data.installationId || 'default', data.period, data.processId, data.fuelTypeId, data.quantity || 0, data.unit || 't', data.customNcv || null, data.customEfCo2 || null, data.customEfCh4 || null, data.customEfN2o || null, data.evidence || '', data.notes || '', userId, prevVersionId]
     );
 
     logAudit({ entityType: 'fuel_entry', entityId: stableId, action: versionNumber === 1 ? 'CREATE' : 'UPDATE', changedBy: userId });
@@ -207,17 +221,19 @@ export function getFuelVersionHistory(stableId) {
 
 // ─── Electricity Entries (Versioned) ─────────────────────────
 
-export function getElectricityEntries(period = null) {
+export function getElectricityEntries(installationId = 'default', period = null) {
     if (period) {
-        return getLatestVersions('electricity_entries', period);
+        return getLatestVersions('electricity_entries', installationId, period);
     }
     return query(`
         SELECT t.* FROM electricity_entries t
         INNER JOIN (
             SELECT stable_id, MAX(version_number) as max_v
-            FROM electricity_entries GROUP BY stable_id
+            FROM electricity_entries
+            WHERE installation_id = ?
+            GROUP BY stable_id
         ) latest ON t.stable_id = latest.stable_id AND t.version_number = latest.max_v
-    `);
+    `, [installationId]);
 }
 
 export function saveElectricityEntry(data, userId = 'user') {
@@ -225,9 +241,9 @@ export function saveElectricityEntry(data, userId = 'user') {
     const { versionId, versionNumber, prevVersionId } = insertVersion('electricity_entries', 'electricity_entry', stableId, data, userId);
 
     execute(
-        `INSERT INTO electricity_entries (version_id, stable_id, version_number, period, process_id, mwh, grid_country, ef, ef_override, evidence, notes, created_by, supersedes_version_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [versionId, stableId, versionNumber, data.period, data.processId, data.mwh || 0, data.gridCountry || 'OTHER', data.ef || 0, data.efOverride ? 1 : 0, data.evidence || '', data.notes || '', userId, prevVersionId]
+        `INSERT INTO electricity_entries (version_id, stable_id, version_number, installation_id, period, process_id, mwh, grid_country, ef, ef_override, evidence, notes, created_by, supersedes_version_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [versionId, stableId, versionNumber, data.installationId || 'default', data.period, data.processId, data.mwh || 0, data.gridCountry || 'OTHER', data.ef || 0, data.efOverride ? 1 : 0, data.evidence || '', data.notes || '', userId, prevVersionId]
     );
 
     logAudit({ entityType: 'electricity_entry', entityId: stableId, action: versionNumber === 1 ? 'CREATE' : 'UPDATE', changedBy: userId });
@@ -241,17 +257,19 @@ export function deleteElectricityEntry(stableId) {
 
 // ─── Process Events (Versioned) ──────────────────────────────
 
-export function getProcessEvents(period = null) {
+export function getProcessEvents(installationId = 'default', period = null) {
     if (period) {
-        return getLatestVersions('process_events', period);
+        return getLatestVersions('process_events', installationId, period);
     }
     return query(`
         SELECT t.* FROM process_events t
         INNER JOIN (
             SELECT stable_id, MAX(version_number) as max_v
-            FROM process_events GROUP BY stable_id
+            FROM process_events
+            WHERE installation_id = ?
+            GROUP BY stable_id
         ) latest ON t.stable_id = latest.stable_id AND t.version_number = latest.max_v
-    `);
+    `, [installationId]);
 }
 
 export function saveProcessEvent(data, userId = 'user') {
@@ -259,9 +277,9 @@ export function saveProcessEvent(data, userId = 'user') {
     const { versionId, versionNumber, prevVersionId } = insertVersion('process_events', 'process_event', stableId, data, userId);
 
     execute(
-        `INSERT INTO process_events (version_id, stable_id, version_number, period, process_id, event_type, parameter, value, unit, data_source, evidence, created_by, supersedes_version_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [versionId, stableId, versionNumber, data.period, data.processId, data.eventType, data.parameter, data.value || 0, data.unit || '', data.dataSource || '', data.evidence || '', userId, prevVersionId]
+        `INSERT INTO process_events (version_id, stable_id, version_number, installation_id, period, process_id, event_type, parameter, value, unit, data_source, evidence, created_by, supersedes_version_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [versionId, stableId, versionNumber, data.installationId || 'default', data.period, data.processId, data.eventType, data.parameter, data.value || 0, data.unit || '', data.dataSource || '', data.evidence || '', userId, prevVersionId]
     );
 
     logAudit({ entityType: 'process_event', entityId: stableId, action: versionNumber === 1 ? 'CREATE' : 'UPDATE', changedBy: userId });
@@ -317,6 +335,16 @@ export function getProducts(installationId = 'default') {
     return query('SELECT * FROM products WHERE installation_id = ?', [installationId]);
 }
 
+export function getCrossSiteProducts(excludeInstallationId) {
+    return query(`
+        SELECT p.*, i.name as installation_name 
+        FROM products p
+        JOIN installations i ON p.installation_id = i.id
+        WHERE p.installation_id != ? AND i.is_final_producer = 0
+        ORDER BY i.name ASC, p.name ASC
+    `, [excludeInstallationId]);
+}
+
 export function saveProduct(data) {
     const existing = query('SELECT * FROM products WHERE id = ?', [data.id]);
     if (existing.length > 0) {
@@ -344,17 +372,19 @@ export function deleteProduct(id) {
 
 // ─── Production Output (Versioned) ──────────────────────────
 
-export function getProductionOutput(period = null) {
+export function getProductionOutput(installationId = 'default', period = null) {
     if (period) {
-        return getLatestVersions('production_output', period);
+        return getLatestVersions('production_output', installationId, period);
     }
     return query(`
         SELECT t.* FROM production_output t
         INNER JOIN (
             SELECT stable_id, MAX(version_number) as max_v
-            FROM production_output GROUP BY stable_id
+            FROM production_output
+            WHERE installation_id = ?
+            GROUP BY stable_id
         ) latest ON t.stable_id = latest.stable_id AND t.version_number = latest.max_v
-    `);
+    `, [installationId]);
 }
 
 export function saveProductionOutput(data, userId = 'user') {
@@ -362,13 +392,45 @@ export function saveProductionOutput(data, userId = 'user') {
     const { versionId, versionNumber, prevVersionId } = insertVersion('production_output', 'production_output', stableId, data, userId);
 
     execute(
-        `INSERT INTO production_output (version_id, stable_id, version_number, period, product_id, process_id, quantity, data_source, evidence, created_by, supersedes_version_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [versionId, stableId, versionNumber, data.period, data.productId, data.processId, data.quantity || 0, data.dataSource || '', data.evidence || '', userId, prevVersionId]
+        `INSERT INTO production_output (version_id, stable_id, version_number, installation_id, period, product_id, process_id, quantity, data_source, evidence, created_by, supersedes_version_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [versionId, stableId, versionNumber, data.installationId || 'default', data.period, data.productId, data.processId, data.quantity || 0, data.dataSource || '', data.evidence || '', userId, prevVersionId]
     );
 
     logAudit({ entityType: 'production_output', entityId: stableId, action: versionNumber === 1 ? 'CREATE' : 'UPDATE', changedBy: userId });
     return { stableId, versionId };
+}
+
+
+// ─── Precursors ──────────────────────────────────────────────
+
+export function getPrecursors(productId) {
+    return query('SELECT * FROM precursors WHERE product_id = ?', [productId]);
+}
+
+export function savePrecursor(data) {
+    const existing = query('SELECT * FROM precursors WHERE id = ?', [data.id]);
+    if (existing.length > 0) {
+        execute(
+            'UPDATE precursors SET product_id = ?, name = ?, cn_code = ?, mass = ?, see = ?, source_type = ?, source_installation_id = ?, source_product_id = ? WHERE id = ?',
+            [data.productId, data.name, data.cnCode || '', data.mass || 0, data.see || 0, data.sourceType || 'actual', data.sourceInstallationId || null, data.sourceProductId || null, data.id]
+        );
+        logAudit({ entityType: 'precursor', entityId: data.id, action: 'UPDATE' });
+    } else {
+        const id = data.id || generateId('pc');
+        execute(
+            'INSERT INTO precursors (id, product_id, name, cn_code, mass, see, source_type, source_installation_id, source_product_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [id, data.productId, data.name, data.cnCode || '', data.mass || 0, data.see || 0, data.sourceType || 'actual', data.sourceInstallationId || null, data.sourceProductId || null]
+        );
+        logAudit({ entityType: 'precursor', entityId: id, action: 'CREATE' });
+        return id;
+    }
+    return data.id;
+}
+
+export function deletePrecursor(id) {
+    execute('DELETE FROM precursors WHERE id = ?', [id]);
+    logAudit({ entityType: 'precursor', entityId: id, action: 'DELETE' });
 }
 
 // ─── Emission Factors ────────────────────────────────────────
@@ -387,40 +449,41 @@ export function getGwpSet(id = 'AR6') {
 
 // ─── CBAM Settings ───────────────────────────────────────────
 
-export function getCbamSettings() {
-    const results = query('SELECT * FROM cbam_settings WHERE id = ?', ['default']);
+export function getCbamSettings(installationId = 'default') {
+    const results = query('SELECT * FROM cbam_settings WHERE id = ?', [installationId]);
     return results[0] || null;
 }
 
 export function saveCbamSettings(data) {
-    const existing = getCbamSettings();
+    const installId = data.installationId || 'default';
+    const existing = getCbamSettings(installId);
     if (existing) {
         execute(
-            `UPDATE cbam_settings SET basis = ?, scope = ?, cert_price_scenario = ?, al_price_scenario = ?, carbon_credit_eligible = ?, carbon_credit_scenario = ?, imported_qty = ?, cn_code = ?, good_category = ? WHERE id = 'default'`,
-            [data.basis, data.scope, data.certPriceScenario, data.alPriceScenario, data.carbonCreditEligible ? 1 : 0, data.carbonCreditScenario, data.importedQty, data.cnCode, data.goodCategory]
+            `UPDATE cbam_settings SET basis = ?, scope = ?, cert_price_scenario = ?, al_price_scenario = ?, carbon_credit_eligible = ?, carbon_credit_scenario = ?, imported_qty = ?, cn_code = ?, good_category = ? WHERE id = ?`,
+            [data.basis, data.scope, data.certPriceScenario, data.alPriceScenario, data.carbonCreditEligible ? 1 : 0, data.carbonCreditScenario, data.importedQty, data.cnCode, data.goodCategory, installId]
         );
     } else {
         execute(
-            `INSERT INTO cbam_settings (id, basis, scope, cert_price_scenario, al_price_scenario, carbon_credit_eligible, carbon_credit_scenario, imported_qty, cn_code, good_category) VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [data.basis, data.scope, data.certPriceScenario, data.alPriceScenario, data.carbonCreditEligible ? 1 : 0, data.carbonCreditScenario, data.importedQty, data.cnCode, data.goodCategory]
+            `INSERT INTO cbam_settings (id, basis, scope, cert_price_scenario, al_price_scenario, carbon_credit_eligible, carbon_credit_scenario, imported_qty, cn_code, good_category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [installId, data.basis, data.scope, data.certPriceScenario, data.alPriceScenario, data.carbonCreditEligible ? 1 : 0, data.carbonCreditScenario, data.importedQty, data.cnCode, data.goodCategory]
         );
     }
 }
 
 // ─── Allocation Settings ─────────────────────────────────────
 
-export function getAllocationSettings() {
-    const results = query('SELECT * FROM allocation_settings WHERE id = ?', ['default']);
+export function getAllocationSettings(installationId = 'default') {
+    const results = query('SELECT * FROM allocation_settings WHERE id = ?', [installationId]);
     return results[0] || { method: 'mass', treat_residue_as_waste: 1 };
 }
 
 export function saveAllocationSettings(data) {
+    const installId = data.installationId || 'default';
     execute(
-        `INSERT OR REPLACE INTO allocation_settings (id, method, treat_residue_as_waste) VALUES ('default', ?, ?)`,
-        [data.method || 'mass', data.treatResidueAsWaste ? 1 : 0]
+        `INSERT OR REPLACE INTO allocation_settings (id, method, treat_residue_as_waste) VALUES (?, ?, ?)`,
+        [installId, data.method || 'mass', data.treatResidueAsWaste ? 1 : 0]
     );
 }
-
 // ─── Calculation Runs ────────────────────────────────────────
 
 export function saveCalculationRun(run) {
@@ -447,5 +510,54 @@ export function getCalculationRun(runId) {
     run.results = JSON.parse(run.results || '{}');
     run.lineage = JSON.parse(run.lineage || '{}');
     return run;
+}
+
+// ─── Section Workflows ───────────────────────────────────────
+
+export function getSectionWorkflows(installationId = 'default', period) {
+    let sql = 'SELECT * FROM section_workflows WHERE installation_id = ?';
+    const params = [installationId];
+    if (period) {
+        sql += ' AND period = ?';
+        params.push(period);
+    }
+    return query(sql, params);
+}
+
+export function saveSectionWorkflow(data) {
+    const id = data.id || generateId('sw');
+
+    // Check if it already exists to determine UPDATE vs CREATE for the audit log
+    const existing = query(`SELECT * FROM section_workflows WHERE installation_id = ? AND period = ? AND section = ?`, [data.installationId || 'default', data.period, data.section]);
+
+    execute(
+        `INSERT OR REPLACE INTO section_workflows (id, installation_id, period, section, status, updated_by, updated_at)
+         VALUES (
+            COALESCE((SELECT id FROM section_workflows WHERE installation_id = ? AND period = ? AND section = ?), ?),
+            ?, ?, ?, ?, ?, datetime('now')
+         )`,
+        [
+            data.installationId || 'default', data.period, data.section, id,
+            data.installationId || 'default', data.period, data.section, data.status || 'DRAFT', data.updatedBy || 'user'
+        ]
+    );
+
+    const finalId = existing.length > 0 ? existing[0].id : id;
+    const oldStatus = existing.length > 0 ? existing[0].status : null;
+
+    // Only log if creating new or status actually changed
+    if (existing.length === 0 || oldStatus !== data.status) {
+        logAudit({
+            entityType: 'section_workflow',
+            entityId: finalId,
+            action: existing.length > 0 ? 'UPDATE' : 'CREATE',
+            fieldName: 'status',
+            oldValue: oldStatus,
+            newValue: data.status || 'DRAFT',
+            changedBy: data.updatedBy || 'user'
+        });
+    }
+
+    return finalId;
 }
 

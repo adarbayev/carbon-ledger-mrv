@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { calculateTotalEmissions, calculatePCF, calcCombustionEmissions, calcElectricityEmissions } from '../engine/emissionEngine';
 import { calculateCBAMProjection } from '../engine/cbamCalculator';
-import { checkSectorCompleteness } from '../data/processTemplates';
+import { calculateDataCompleteness } from '../engine/qaEngine';
+import { fmtInt, fmtNum, fmtPct, fmtSEE, fmtMillions } from '../utils/formatUtils';
 import {
     BarChart3, TrendingUp, ShieldCheck, Zap, Flame, Factory,
     ArrowRight, AlertTriangle, CheckCircle2, Activity
@@ -17,6 +19,7 @@ const GAS_COLORS = { CO2: '#3b82f6', CH4: '#f59e0b', N2O: '#ef4444', CF4: '#8b5c
 
 export default function DashboardView() {
     const { state, dispatch } = useApp();
+    const { t } = useLanguage();
 
     // ─── Compute emissions ────────────────────────────────────
     const emissionResult = useMemo(() => calculateTotalEmissions({
@@ -39,18 +42,8 @@ export default function DashboardView() {
 
     // ─── Completeness ─────────────────────────────────────────
     const completeness = useMemo(() => {
-        const blocks = Array.isArray(state.emissionBlocks) ? state.emissionBlocks : [];
-        const sectorCheck = checkSectorCompleteness(blocks);
-        const totalSectors = sectorCheck.sectors?.length || 0;
-        const missingCount = sectorCheck.missing?.length || 0;
-        const presentCount = totalSectors > 0 ? Math.max(0, totalSectors - missingCount) : 0;
-        const pct = totalSectors > 0 ? Math.round(((totalSectors - missingCount) / totalSectors) * 100) : (blocks.length > 0 ? 100 : 0);
-        return {
-            pct: Math.max(0, Math.min(100, pct)),
-            present: presentCount,
-            total: totalSectors,
-        };
-    }, [state.emissionBlocks]);
+        return calculateDataCompleteness(state);
+    }, [state.activity, state.emissionBlocks]);
 
     // ─── QA checks (simplified inline) ────────────────────────
     const qaStats = useMemo(() => {
@@ -111,13 +104,12 @@ export default function DashboardView() {
 
     // ─── Scope breakdown pie ──────────────────────────────────
     const scopeData = [
-        { name: 'Combustion (Scope 1)', value: Math.round(emissionResult.combustion.totals.co2e) },
-        { name: 'Process (Scope 1)', value: Math.round(emissionResult.summary.directCO2e - emissionResult.summary.combustionCO2e) },
-        { name: 'Electricity (Scope 2)', value: Math.round(indirectEmissions) },
+        { name: t('ui.dashboard.charts.scope1'), value: Math.round(emissionResult.combustion.totals.co2e) },
+        { name: t('ui.dashboard.charts.process1'), value: Math.round(emissionResult.summary.directCO2e - emissionResult.summary.combustionCO2e) },
+        { name: t('ui.dashboard.charts.scope2'), value: Math.round(indirectEmissions) },
     ].filter(d => d.value > 0);
 
     // ─── Helpers ──────────────────────────────────────────────
-    const fmt = (n) => Math.round(n).toLocaleString();
     const pctColor = (pct) => pct >= 90 ? 'text-emerald-600' : pct >= 70 ? 'text-amber-600' : 'text-red-600';
     const pctBg = (pct) => pct >= 90 ? 'bg-emerald-500' : pct >= 70 ? 'bg-amber-500' : 'bg-red-500';
 
@@ -130,13 +122,13 @@ export default function DashboardView() {
                     onClick={() => dispatch({ type: 'SET_TAB', payload: 'results' })}>
                     <div className="flex items-center gap-2 text-blue-600 mb-2">
                         <TrendingUp size={18} />
-                        <span className="text-xs font-semibold uppercase tracking-wide">Total Emissions</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide">{t('ui.dashboard.cards.total')}</span>
                     </div>
-                    <div className="text-3xl font-bold text-blue-800">{fmt(totalEmissions)}</div>
-                    <div className="text-xs text-blue-500 mt-1">tCO₂e</div>
+                    <div className="text-3xl font-bold text-blue-800">{fmtInt(totalEmissions)}</div>
+                    <div className="text-xs text-blue-500 mt-1">tCO₂e (Total Site)</div>
                     <div className="mt-3 flex gap-4 text-xs text-slate-500">
-                        <span>Direct: <strong className="text-slate-700">{fmt(directEmissions)}</strong></span>
-                        <span>Indirect: <strong className="text-slate-700">{fmt(indirectEmissions)}</strong></span>
+                        <span>{t('ui.results.cards.direct')}: <strong className="text-slate-700">{fmtInt(directEmissions)}</strong></span>
+                        <span>{t('ui.results.cards.indirect')}: <strong className="text-slate-700">{fmtInt(indirectEmissions)}</strong></span>
                     </div>
                 </div>
 
@@ -145,10 +137,12 @@ export default function DashboardView() {
                     onClick={() => dispatch({ type: 'SET_TAB', payload: 'activity' })}>
                     <div className="flex items-center gap-2 text-slate-600 mb-2">
                         <Activity size={18} />
-                        <span className="text-xs font-semibold uppercase tracking-wide">Completeness</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide">{t('ui.dashboard.cards.completeness')}</span>
                     </div>
-                    <div className={`text-3xl font-bold ${pctColor(completeness.pct)}`}>{completeness.pct}%</div>
-                    <div className="text-xs text-slate-400 mt-1">{completeness.present}/{completeness.total} sector requirements met</div>
+                    <div className="text-3xl font-bold text-blue-700">{completeness.pct}%</div>
+                    <div className="text-[11px] text-blue-400 mt-1">
+                        {completeness.filled}/{completeness.total} data fields filled
+                    </div>
                     <div className="mt-3 w-full bg-slate-100 rounded-full h-2">
                         <div className={`h-2 rounded-full transition-all ${pctBg(completeness.pct)}`}
                             style={{ width: `${completeness.pct}%` }} />
@@ -160,7 +154,7 @@ export default function DashboardView() {
                     onClick={() => dispatch({ type: 'SET_TAB', payload: 'qa' })}>
                     <div className="flex items-center gap-2 text-slate-600 mb-2">
                         <ShieldCheck size={18} />
-                        <span className="text-xs font-semibold uppercase tracking-wide">QA Status</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide">{t('ui.dashboard.cards.qa')}</span>
                     </div>
                     <div className="flex items-center gap-2">
                         {qaStats.passed === qaStats.total ? (
@@ -170,7 +164,7 @@ export default function DashboardView() {
                         )}
                         <div className="text-3xl font-bold text-slate-800">{qaStats.passed}/{qaStats.total}</div>
                     </div>
-                    <div className="text-xs text-slate-400 mt-1">checks passed</div>
+                    <div className="text-xs text-slate-400 mt-1">{t('ui.dashboard.cards.checksPassed')}</div>
                 </div>
             </div>
 
@@ -180,18 +174,18 @@ export default function DashboardView() {
                 <div className="card">
                     <div className="flex items-center gap-2 text-indigo-600 mb-2">
                         <Factory size={18} />
-                        <span className="text-xs font-semibold uppercase tracking-wide">Product Carbon Footprint</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide">{t('ui.dashboard.pcf.title')}</span>
                     </div>
                     {mainProduct ? (
                         <>
-                            <div className="text-2xl font-bold text-indigo-800">{(mainProduct.pcf ?? 0).toFixed(3)}</div>
-                            <div className="text-xs text-indigo-400">tCO₂e / t product</div>
+                            <div className="text-2xl font-bold text-indigo-800">{fmtSEE(mainProduct.pcf)}</div>
+                            <div className="text-xs text-indigo-400">tCO₂e / {t('ui.results.pcf.product').toLowerCase()}</div>
                             <div className="mt-2 text-xs text-slate-500">
-                                {mainProduct.productName || mainProduct.name} — {fmt(mainProduct.quantity || 0)} t produced
+                                {mainProduct.productName || mainProduct.name} — {fmtInt(mainProduct.quantity || 0)} {t('ui.dashboard.pcf.produced')}
                             </div>
                         </>
                     ) : (
-                        <div className="text-sm text-slate-400">No products defined</div>
+                        <div className="text-sm text-slate-400">{t('ui.dashboard.pcf.empty')}</div>
                     )}
                 </div>
 
@@ -199,19 +193,19 @@ export default function DashboardView() {
                 <div className="card">
                     <div className="flex items-center gap-2 text-orange-600 mb-2">
                         <BarChart3 size={18} />
-                        <span className="text-xs font-semibold uppercase tracking-wide">CBAM Exposure (2026)</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide">{t('ui.dashboard.cbam.title')}</span>
                     </div>
                     {cbamExposure ? (
                         <>
                             <div className="text-2xl font-bold text-orange-800">
-                                €{(cbamExposure.netCost / 1e6).toFixed(2)}M
+                                €{fmtMillions(cbamExposure.netCost / 1e6)}M
                             </div>
                             <div className="text-xs text-orange-400">
-                                {fmt(cbamExposure.payableEmissions)} payable tCO₂e @ €{cbamExposure.certPrice}/t
+                                {fmtInt(cbamExposure.payableEmissions)} {t('ui.dashboard.cbam.payable')} €{cbamExposure.certPrice}/t
                             </div>
                         </>
                     ) : (
-                        <div className="text-sm text-slate-400">Configure CBAM settings in Results</div>
+                        <div className="text-sm text-slate-400">{t('ui.dashboard.cbam.configure')}</div>
                     )}
                 </div>
 
@@ -219,19 +213,19 @@ export default function DashboardView() {
                 <div className="card">
                     <div className="flex items-center gap-2 text-cyan-600 mb-2">
                         <Zap size={18} />
-                        <span className="text-xs font-semibold uppercase tracking-wide">Data Sources</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide">{t('ui.dashboard.data.title')}</span>
                     </div>
                     <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                            <span className="text-slate-500 flex items-center gap-1"><Flame size={12} /> Fuel entries</span>
+                            <span className="text-slate-500 flex items-center gap-1"><Flame size={12} /> {t('ui.dashboard.data.fuel')}</span>
                             <strong className="text-slate-800">{state.activity.fuels.length}</strong>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-slate-500 flex items-center gap-1"><Zap size={12} /> Electricity entries</span>
+                            <span className="text-slate-500 flex items-center gap-1"><Zap size={12} /> {t('ui.dashboard.data.electricity')}</span>
                             <strong className="text-slate-800">{state.activity.electricity.length}</strong>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-slate-500 flex items-center gap-1"><Factory size={12} /> Emission blocks</span>
+                            <span className="text-slate-500 flex items-center gap-1"><Factory size={12} /> {t('ui.dashboard.data.blocks')}</span>
                             <strong className="text-slate-800">{(state.emissionBlocks || []).length}</strong>
                         </div>
                     </div>
@@ -242,7 +236,7 @@ export default function DashboardView() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '1.5rem' }}>
                 {/* Scope Breakdown Donut */}
                 <div className="card">
-                    <h3 className="text-sm font-semibold text-slate-700 mb-3">Emissions by Scope</h3>
+                    <h3 className="text-sm font-semibold text-slate-700 mb-3">{t('ui.dashboard.charts.scopeTitle')}</h3>
                     {scopeData.length > 0 ? (
                         <div style={{ height: 220 }}>
                             <ResponsiveContainer width="100%" height="100%">
@@ -254,19 +248,19 @@ export default function DashboardView() {
                                             <Cell key={i} fill={SCOPE_COLORS[i % SCOPE_COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    <Tooltip formatter={(v) => `${fmt(v)} tCO₂e`}
+                                    <Tooltip formatter={(v) => `${fmtInt(v)} tCO₂e`}
                                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
                     ) : (
-                        <div className="text-sm text-slate-400 py-10 text-center">No emissions data yet</div>
+                        <div className="text-sm text-slate-400 py-10 text-center">{t('ui.dashboard.charts.noData')}</div>
                     )}
                     <div className="flex flex-wrap gap-3 mt-2 justify-center">
                         {scopeData.map((d, i) => (
                             <span key={i} className="flex items-center gap-1.5 text-xs text-slate-500">
                                 <span className="w-2.5 h-2.5 rounded-full" style={{ background: SCOPE_COLORS[i % SCOPE_COLORS.length] }} />
-                                {d.name}: <strong>{fmt(d.value)}</strong>
+                                {d.name}: <strong>{fmtInt(d.value)}</strong>
                             </span>
                         ))}
                     </div>
@@ -274,7 +268,7 @@ export default function DashboardView() {
 
                 {/* Monthly Trend */}
                 <div className="card">
-                    <h3 className="text-sm font-semibold text-slate-700 mb-3">Monthly Emissions Trend</h3>
+                    <h3 className="text-sm font-semibold text-slate-700 mb-3">{t('ui.dashboard.charts.trendTitle')}</h3>
                     {monthlyTrend.length > 0 ? (
                         <div style={{ height: 250 }}>
                             <ResponsiveContainer width="100%" height="100%">
@@ -282,30 +276,30 @@ export default function DashboardView() {
                                     <XAxis dataKey="month" tick={{ fontSize: 10 }} />
                                     <YAxis tick={{ fontSize: 10 }} />
                                     <Tooltip
-                                        formatter={(v) => `${fmt(v)} tCO₂e`}
+                                        formatter={(v) => `${fmtInt(v)} tCO₂e`}
                                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                     />
                                     <Legend wrapperStyle={{ fontSize: 11 }} />
-                                    <Bar dataKey="direct" stackId="a" fill="#3b82f6" name="Direct (Scope 1)" radius={[0, 0, 0, 0]} />
-                                    <Bar dataKey="indirect" stackId="a" fill="#06b6d4" name="Indirect (Scope 2)" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="direct" stackId="a" fill="#3b82f6" name={t('ui.results.cards.direct')} radius={[0, 0, 0, 0]} />
+                                    <Bar dataKey="indirect" stackId="a" fill="#06b6d4" name={t('ui.results.cards.indirect')} radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
                     ) : (
-                        <div className="text-sm text-slate-400 py-10 text-center">Add activity data to see trends</div>
+                        <div className="text-sm text-slate-400 py-10 text-center">{t('ui.dashboard.charts.addActivity')}</div>
                     )}
                 </div>
             </div>
 
             {/* ─── Quick Navigation ───────────────────────── */}
             <div className="card bg-slate-50">
-                <h3 className="text-sm font-semibold text-slate-700 mb-3">Quick Actions</h3>
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">{t('ui.dashboard.actions.title')}</h3>
                 <div className="grid grid-cols-4 gap-3">
                     {[
-                        { tab: 'activity', label: 'Enter Activity Data', icon: Flame, color: 'text-orange-500' },
-                        { tab: 'results', label: 'View Results', icon: BarChart3, color: 'text-blue-500' },
-                        { tab: 'qa', label: 'Run QA Checks', icon: ShieldCheck, color: 'text-emerald-500' },
-                        { tab: 'audit', label: 'Audit Trail', icon: Activity, color: 'text-violet-500' },
+                        { tab: 'activity', label: t('ui.dashboard.actions.activity'), icon: Flame, color: 'text-orange-500' },
+                        { tab: 'results', label: t('ui.dashboard.actions.results'), icon: BarChart3, color: 'text-blue-500' },
+                        { tab: 'qa', label: t('ui.dashboard.actions.qa'), icon: ShieldCheck, color: 'text-emerald-500' },
+                        { tab: 'audit', label: t('ui.dashboard.actions.audit'), icon: Activity, color: 'text-violet-500' },
                     ].map(a => (
                         <button key={a.tab}
                             className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white border border-slate-200 text-sm font-medium text-slate-600 hover:border-blue-300 hover:shadow-sm transition-all group"

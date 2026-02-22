@@ -3,12 +3,16 @@ import { useApp } from '../context/AppContext';
 import { getCnCodeInfo } from '../data/referenceData';
 import { calculateCBAMProjection } from '../engine/cbamCalculator';
 import { calculateTotalEmissions, calculatePCF } from '../engine/emissionEngine';
+import { fmtInt, fmtNum, fmtCurrency } from '../utils/formatUtils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Legend, PieChart, Pie } from 'recharts';
 import { Calculator, TrendingUp, Info, ShieldCheck } from 'lucide-react';
 import LineagePanel from '../components/LineagePanel';
 
+import { useLanguage } from '../context/LanguageContext';
+
 export default function ResultsView() {
     const { state, dispatch } = useApp();
+    const { t } = useLanguage();
     const [selectedBlock, setSelectedBlock] = useState(null);
 
     // ─── Emission Calculations (Multi-Gas Engine) ─────────────
@@ -98,8 +102,8 @@ export default function ResultsView() {
     // Chart data: Actual vs Default grouped bars by year
     const comparisonChartData = actualProjection.rows.map((row, i) => ({
         year: row.year,
-        'Actual (MRV)': row.netCost,
-        'Default (EU Reg.)': defaultProjection.rows[i].netCost,
+        [t('ui.results.cbam.summary.actual')]: row.netCost,
+        [t('ui.results.cbam.summary.default')]: defaultProjection.rows[i].netCost,
     }));
 
     // Emissions breakdown chart data (for existing product chart)
@@ -107,9 +111,9 @@ export default function ResultsView() {
         .filter(p => !p.isExcluded)
         .map(p => ({
             name: p.name.length > 15 ? p.name.slice(0, 15) + '\u2026' : p.name,
-            'Direct (Scope 1)': p.ownDirect,
-            'Indirect (Scope 2)': p.ownIndirect,
-            'Precursors': p.precursorEmissions,
+            [t('ui.results.pcf.direct')]: p.ownDirect,
+            [t('ui.results.pcf.indirect')]: p.ownIndirect,
+            [t('ui.results.pcf.precursors')]: p.precursorEmissions,
         }));
 
     return (
@@ -120,25 +124,25 @@ export default function ResultsView() {
                     <div className="card bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
                         <div className="flex items-center gap-2 text-blue-600 mb-1">
                             <TrendingUp size={16} />
-                            <span className="text-xs font-semibold uppercase">Direct (Scope 1)</span>
+                            <span className="text-xs font-semibold uppercase">{t('ui.results.cards.direct')}</span>
                         </div>
-                        <div className="text-2xl font-bold text-blue-800">{Math.round(totalDirect).toLocaleString()}</div>
+                        <div className="text-2xl font-bold text-blue-800">{fmtInt(totalDirect)}</div>
                         <div className="text-xs text-blue-500">tCO₂</div>
                     </div>
                     <div className="card bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200">
                         <div className="flex items-center gap-2 text-cyan-600 mb-1">
                             <TrendingUp size={16} />
-                            <span className="text-xs font-semibold uppercase">Indirect (Scope 2)</span>
+                            <span className="text-xs font-semibold uppercase">{t('ui.results.cards.indirect')}</span>
                         </div>
-                        <div className="text-2xl font-bold text-cyan-800">{Math.round(totalIndirect).toLocaleString()}</div>
+                        <div className="text-2xl font-bold text-cyan-800">{fmtInt(totalIndirect)}</div>
                         <div className="text-xs text-cyan-500">tCO₂</div>
                     </div>
                     <div className="card bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
                         <div className="flex items-center gap-2 text-indigo-600 mb-1">
                             <TrendingUp size={16} />
-                            <span className="text-xs font-semibold uppercase">Total Emissions</span>
+                            <span className="text-xs font-semibold uppercase">{t('ui.results.cards.total')}</span>
                         </div>
-                        <div className="text-2xl font-bold text-indigo-800">{Math.round(totalEmissions).toLocaleString()}</div>
+                        <div className="text-2xl font-bold text-indigo-800">{fmtInt(totalEmissions)}</div>
                         <div className="text-xs text-indigo-500">tCO₂</div>
                     </div>
                 </div>
@@ -148,18 +152,18 @@ export default function ResultsView() {
                     <div className="card">
                         <div className="flex items-center gap-2 mb-4">
                             <ShieldCheck size={20} className="text-blue-500" />
-                            <h3 className="text-lg font-semibold text-slate-700">Product Carbon Footprint (SEE)</h3>
+                            <h3 className="text-lg font-semibold text-slate-700">{t('ui.results.pcf.title')}</h3>
                         </div>
 
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Product</th>
-                                    <th className="text-right">Direct</th>
-                                    <th className="text-right">Indirect</th>
-                                    <th className="text-right">Precursors</th>
-                                    <th className="text-right">Total</th>
-                                    <th className="text-right">SEE (t/t)</th>
+                                    <th>{t('ui.results.pcf.product')}</th>
+                                    <th className="text-right">{t('ui.results.pcf.direct')}</th>
+                                    <th className="text-right">{t('ui.results.pcf.indirect')}</th>
+                                    <th className="text-right">{t('ui.results.pcf.precursors')}</th>
+                                    <th className="text-right">{t('ui.results.pcf.total')}</th>
+                                    <th className="text-right">{t('ui.results.pcf.see')}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -172,10 +176,10 @@ export default function ResultsView() {
                                                 {p.isComplex && ' · Complex'}
                                             </div>
                                         </td>
-                                        <td className="text-right font-mono">{p.ownDirect.toLocaleString()}</td>
-                                        <td className="text-right font-mono">{p.ownIndirect.toLocaleString()}</td>
-                                        <td className="text-right font-mono">{p.precursorEmissions > 0 ? p.precursorEmissions.toLocaleString() : '—'}</td>
-                                        <td className="text-right font-mono font-bold">{p.totalAllocated.toLocaleString()}</td>
+                                        <td className="text-right font-mono">{fmtInt(p.ownDirect)}</td>
+                                        <td className="text-right font-mono">{fmtInt(p.ownIndirect)}</td>
+                                        <td className="text-right font-mono">{p.precursorEmissions > 0 ? fmtInt(p.precursorEmissions) : '—'}</td>
+                                        <td className="text-right font-mono font-bold">{fmtInt(p.totalAllocated)}</td>
                                         <td className="text-right font-mono">
                                             {p.isExcluded ? '—' : (
                                                 <div>
@@ -197,8 +201,8 @@ export default function ResultsView() {
                             <div className="flex items-start gap-2 text-xs text-slate-500">
                                 <Info size={14} className="mt-0.5 shrink-0" />
                                 <div>
-                                    <strong>For simple goods:</strong> SEE = (Scope 1 + Scope 2) × allocation_ratio ÷ product_mass<br />
-                                    <strong>For complex goods:</strong> SEE = own_SEE + Σ(precursor_mass × precursor_SEE) ÷ product_mass
+                                    <strong>{t('ui.results.calcNote.simple')}</strong> {t('ui.results.calcNote.simpleFormula')}<br />
+                                    <strong>{t('ui.results.calcNote.complex')}</strong> {t('ui.results.calcNote.complexFormula')}
                                 </div>
                             </div>
                         </div>
@@ -206,7 +210,7 @@ export default function ResultsView() {
 
                     {/* Chart */}
                     <div className="card">
-                        <h3 className="text-lg font-semibold text-slate-700 mb-4">Emissions Breakdown</h3>
+                        <h3 className="text-lg font-semibold text-slate-700 mb-4">{t('ui.results.chart.title')}</h3>
                         {chartData.length > 0 ? (
                             <div className="h-[250px]">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -215,13 +219,13 @@ export default function ResultsView() {
                                         <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={100} />
                                         <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                                         <Legend wrapperStyle={{ fontSize: 11 }} />
-                                        <Bar dataKey="Direct (Scope 1)" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
-                                        <Bar dataKey="Indirect (Scope 2)" stackId="a" fill="#06b6d4" />
-                                        <Bar dataKey="Precursors" stackId="a" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                                        <Bar dataKey={t('ui.results.pcf.direct')} stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+                                        <Bar dataKey={t('ui.results.pcf.indirect')} stackId="a" fill="#06b6d4" />
+                                        <Bar dataKey={t('ui.results.pcf.precursors')} stackId="a" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
-                        ) : <div className="empty-state">Define products to see the chart.</div>}
+                        ) : <div className="empty-state">{t('ui.results.chart.empty')}</div>}
                     </div>
                 </div>
 
@@ -263,7 +267,7 @@ export default function ResultsView() {
 
                     return (
                         <div className="card">
-                            <h3 className="text-lg font-semibold text-slate-700 mb-2">Multi-Gas Breakdown</h3>
+                            <h3 className="text-lg font-semibold text-slate-700 mb-2">{t('ui.results.multiGas.title')}</h3>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'center' }}>
                                 {/* Donut */}
                                 <div className="h-[220px]">
@@ -282,7 +286,7 @@ export default function ResultsView() {
                                                 ))}
                                             </Pie>
                                             <Tooltip
-                                                formatter={(v, name) => [`${v.toLocaleString()} tCO\u2082e`, name]}
+                                                formatter={(v, name) => [`${fmtInt(v)} tCO₂e`, name]}
                                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
                                             />
                                         </PieChart>
@@ -296,14 +300,14 @@ export default function ResultsView() {
                                             <div className="flex-1">
                                                 <div className="text-sm font-bold text-slate-700">{d.name}</div>
                                                 <div className="text-[11px] text-slate-500">
-                                                    {d.value.toLocaleString()} tCO\u2082e &middot; {d.pct}%
+                                                    {fmtInt(d.value)} tCO₂e &middot; {d.pct}%
                                                 </div>
                                             </div>
                                         </div>
                                     ))}
                                     <div className="pt-2 mt-2 border-t border-slate-200">
-                                        <div className="text-xs text-slate-500">Total</div>
-                                        <div className="text-lg font-bold text-slate-800">{totalGas.toFixed(1).toLocaleString()} tCO\u2082e</div>
+                                        <div className="text-xs text-slate-500">{t('ui.results.multiGas.total')}</div>
+                                        <div className="text-lg font-bold text-slate-800">{fmtNum(totalGas, 1)} tCO₂e</div>
                                     </div>
                                 </div>
                             </div>
@@ -317,7 +321,7 @@ export default function ResultsView() {
                 <div className="card">
                     <div className="flex items-center gap-2 mb-5">
                         <Calculator size={20} className="text-indigo-500" />
-                        <h3 className="text-lg font-semibold text-slate-700">CBAM Cost Projection</h3>
+                        <h3 className="text-lg font-semibold text-slate-700">{t('ui.results.cbam.title')}</h3>
                         <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">2026–2034</span>
                         <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{cbam.goodCategory}</span>
                         <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{cbam.scope === 'DIRECT_ONLY' ? 'Direct' : 'Direct + Indirect'}</span>
@@ -329,10 +333,10 @@ export default function ResultsView() {
                             <ShieldCheck size={20} className="text-emerald-600 shrink-0" />
                             <div>
                                 <span className="text-sm font-semibold text-emerald-700">
-                                    MRV saves €{(savings / 1e6).toFixed(1)}M ({savingsPct}%)
+                                    {t('ui.results.cbam.summary.saves')} €{(savings / 1e6).toFixed(1)}M ({savingsPct}%)
                                 </span>
                                 <span className="text-xs text-emerald-600 ml-2">
-                                    over 9 years vs. EU default values
+                                    {t('ui.results.cbam.summary.over')}
                                 </span>
                             </div>
                         </div>
@@ -342,10 +346,10 @@ export default function ResultsView() {
                             <Info size={20} className="text-amber-600 shrink-0" />
                             <div>
                                 <span className="text-sm font-semibold text-amber-700">
-                                    Actual emissions exceed EU defaults
+                                    {t('ui.results.cbam.summary.exceeds')}
                                 </span>
                                 <span className="text-xs text-amber-600 ml-2">
-                                    — EU default values would be lower cost by €{(Math.abs(savings) / 1e6).toFixed(1)}M
+                                    — {t('ui.results.cbam.summary.lower')} €{(Math.abs(savings) / 1e6).toFixed(1)}M
                                 </span>
                             </div>
                         </div>
@@ -355,12 +359,12 @@ export default function ResultsView() {
                         {/* Controls (left, simplified) */}
                         <div className="col-span-3 space-y-3">
                             <div className="pt-2 border-t-2 border-blue-200 bg-blue-50/30 rounded-lg p-3">
-                                <label className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide mb-1 block">📦 Import Volume (t/year)</label>
+                                <label className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide mb-1 block">📦 {t('ui.results.cbam.controls.import')}</label>
                                 <input type="number" value={cbam.importedQty} className="input-highlight w-full"
                                     onChange={(e) => dispatch({ type: 'UPDATE_CBAM', payload: { field: 'importedQty', value: parseFloat(e.target.value) || 0 } })} />
                             </div>
                             <div>
-                                <label className="text-xs font-medium text-slate-500 mb-1 block">EUA Price Scenario</label>
+                                <label className="text-xs font-medium text-slate-500 mb-1 block">{t('ui.results.cbam.controls.priceScenario')}</label>
                                 <select value={cbam.certPriceScenario} className="input-cell text-sm w-full"
                                     onChange={(e) => dispatch({ type: 'UPDATE_CBAM', payload: { field: 'certPriceScenario', value: e.target.value } })}>
                                     <option value="LOW">Low</option>
@@ -369,12 +373,12 @@ export default function ResultsView() {
                                 </select>
                             </div>
                             <div>
-                                <label className="text-xs font-medium text-slate-500 mb-1 block">KZ ETS Credits</label>
+                                <label className="text-xs font-medium text-slate-500 mb-1 block">{t('ui.results.cbam.controls.kzCredit')}</label>
                                 <div className="flex gap-2">
                                     <select value={cbam.carbonCreditEligible ? 'Y' : 'N'} className="input-cell text-sm flex-1"
                                         onChange={(e) => dispatch({ type: 'UPDATE_CBAM', payload: { field: 'carbonCreditEligible', value: e.target.value === 'Y' } })}>
-                                        <option value="Y">Eligible</option>
-                                        <option value="N">Not eligible</option>
+                                        <option value="Y">{t('ui.results.cbam.controls.eligible')}</option>
+                                        <option value="N">{t('ui.results.cbam.controls.notEligible')}</option>
                                     </select>
                                     <select value={cbam.carbonCreditScenario} className="input-cell text-sm flex-1"
                                         disabled={!cbam.carbonCreditEligible}
@@ -389,10 +393,10 @@ export default function ResultsView() {
 
                             {/* Auto-detected info */}
                             <div className="bg-slate-50 rounded-lg p-3 space-y-1.5 text-[11px] text-slate-500">
-                                <div className="font-semibold text-slate-600 text-xs mb-1.5">Auto-detected</div>
-                                <div className="flex justify-between"><span>Sector</span><span className="font-medium text-slate-700">{cbam.goodCategory}</span></div>
-                                <div className="flex justify-between"><span>Scope</span><span className="font-medium text-slate-700">{cbam.scope === 'DIRECT_ONLY' ? 'Direct only' : 'Direct + Indirect'}</span></div>
-                                <div className="flex justify-between"><span>SEE (actual)</span><span className="font-mono text-slate-700">{(mainProduct?.seeDirect + mainProduct?.seeIndirect || 0).toFixed(3)}</span></div>
+                                <div className="font-semibold text-slate-600 text-xs mb-1.5">{t('ui.results.cbam.controls.autoDetected')}</div>
+                                <div className="flex justify-between"><span>{t('ui.results.cbam.controls.sector')}</span><span className="font-medium text-slate-700">{cbam.goodCategory}</span></div>
+                                <div className="flex justify-between"><span>{t('ui.results.cbam.controls.scope')}</span><span className="font-medium text-slate-700">{cbam.scope === 'DIRECT_ONLY' ? 'Direct only' : 'Direct + Indirect'}</span></div>
+                                <div className="flex justify-between"><span>{t('ui.results.cbam.controls.seeActual')}</span><span className="font-mono text-slate-700">{(mainProduct?.seeDirect + mainProduct?.seeIndirect || 0).toFixed(3)}</span></div>
                             </div>
                         </div>
 
@@ -401,33 +405,41 @@ export default function ResultsView() {
                             {/* Two-card comparison */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="rounded-lg p-4 border-2 border-blue-300 bg-blue-50">
-                                    <div className="text-xs font-semibold uppercase tracking-wide text-blue-600 mb-1">✓ Actual (your MRV data)</div>
+                                    <div className="text-xs font-semibold uppercase tracking-wide text-blue-600 mb-1">✓ {t('ui.results.cbam.summary.actual')}</div>
                                     <div className="text-2xl font-bold text-blue-700">
                                         €{(actualProjection.totals.totalNetCost / 1e6).toFixed(1)}M
                                     </div>
                                     <div className="text-[10px] text-slate-500 mt-1 mb-2">
-                                        9-year net cost · KZ ETS: −€{(actualProjection.totals.totalKzEtsDeduction / 1e6).toFixed(1)}M
+                                        {t('ui.results.cbam.summary.netCost')} · {t('ui.results.cbam.summary.kzDeduction')}: −€{(actualProjection.totals.totalKzEtsDeduction / 1e6).toFixed(1)}M
                                     </div>
                                     <div className="text-[10px] text-blue-800 mt-1 font-mono bg-blue-100/50 p-2 rounded">
-                                        <div className="flex justify-between"><span>Direct:</span><span>{(mainProduct?.seeDirect || 0).toFixed(3)}</span></div>
-                                        <div className="flex justify-between"><span>Indirect:</span><span>{(mainProduct?.seeIndirect || 0).toFixed(3)}</span></div>
+
+                                        <div className="flex justify-between"><span>{t('ui.results.pcf.direct')}:</span><span>{(mainProduct?.seeDirect || 0).toFixed(3)}</span></div>
+                                        <div className="flex justify-between"><span>{t('ui.results.pcf.indirect')}:</span><span>{(mainProduct?.seeIndirect || 0).toFixed(3)}</span></div>
                                         <div className="pt-1 mt-1 border-t border-blue-200 font-bold flex justify-between">
-                                            <span>Total SEE:</span>
-                                            <span>{((mainProduct?.seeDirect || 0) + (mainProduct?.seeIndirect || 0)).toFixed(3)} tCO₂/t</span>
+                                            <span>
+                                                {actualProjection.metadata.effectiveScope === 'DIRECT_ONLY' ? 'Applicable (Direct Only):' : 'Total Applicable SEE:'}
+                                            </span>
+                                            <span>
+                                                {actualProjection.metadata.effectiveScope === 'DIRECT_ONLY'
+                                                    ? (mainProduct?.seeDirect || 0).toFixed(3)
+                                                    : ((mainProduct?.seeDirect || 0) + (mainProduct?.seeIndirect || 0)).toFixed(3)
+                                                } tCO₂/t
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="rounded-lg p-4 border-2 border-slate-300 bg-slate-50">
-                                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Default (EU regulation)</div>
+                                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">{t('ui.results.cbam.summary.default')}</div>
                                     <div className="text-2xl font-bold text-slate-600">
                                         €{(defaultProjection.totals.totalNetCost / 1e6).toFixed(1)}M
                                     </div>
                                     <div className="text-[10px] text-slate-500 mt-1 mb-2">
-                                        9-year net cost · KZ ETS: −€{(defaultProjection.totals.totalKzEtsDeduction / 1e6).toFixed(1)}M
+                                        {t('ui.results.cbam.summary.netCost')} · {t('ui.results.cbam.summary.kzDeduction')}: −€{(defaultProjection.totals.totalKzEtsDeduction / 1e6).toFixed(1)}M
                                     </div>
                                     <div className="text-[10px] text-slate-600 mt-1 font-mono bg-slate-100 p-2 rounded">
                                         <div className="flex justify-between">
-                                            <span>Base Default:</span>
+                                            <span>{t('ui.results.cbam.summary.baseDefault')}:</span>
                                             <span className="font-semibold">
                                                 {(() => {
                                                     const de = defaultProjection.metadata.defaultEntry;
@@ -440,11 +452,11 @@ export default function ResultsView() {
                                             </span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span>Markup (2026):</span>
+                                            <span>{t('ui.results.cbam.summary.markup')} (2026):</span>
                                             <span className="text-red-500">+{((defaultProjection.rows[0]?.markup || 0) * 100).toFixed(0)}%</span>
                                         </div>
                                         <div className="pt-1 mt-1 border-t border-slate-200 font-bold flex justify-between">
-                                            <span>Used Intensity:</span>
+                                            <span>{t('ui.results.cbam.summary.intensity')}:</span>
                                             <span>{(defaultProjection.rows[0]?.intensity || 0).toFixed(3)} tCO₂/t</span>
                                         </div>
                                     </div>
@@ -459,11 +471,11 @@ export default function ResultsView() {
                                         <YAxis tick={{ fontSize: 10 }}
                                             tickFormatter={(v) => v >= 1e6 ? `€${(v / 1e6).toFixed(0)}M` : `€${(v / 1e3).toFixed(0)}K`} />
                                         <Tooltip
-                                            formatter={(value) => [`€${Math.round(value).toLocaleString()}`, undefined]}
+                                            formatter={(value) => [`€${fmtInt(value)}`, undefined]}
                                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: 12 }} />
                                         <Legend wrapperStyle={{ fontSize: 11 }} />
-                                        <Bar dataKey="Actual (MRV)" fill="#3b82f6" radius={[3, 3, 0, 0]} />
-                                        <Bar dataKey="Default (EU Reg.)" fill="#94a3b8" radius={[3, 3, 0, 0]} />
+                                        <Bar dataKey={t('ui.results.cbam.summary.actual')} fill="#3b82f6" radius={[3, 3, 0, 0]} />
+                                        <Bar dataKey={t('ui.results.cbam.summary.default')} fill="#94a3b8" radius={[3, 3, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
@@ -473,62 +485,61 @@ export default function ResultsView() {
                     {/* Projection Table — Actual basis */}
                     <div className="mt-6">
                         <h4 className="text-sm font-semibold text-slate-600 mb-3">
-                            Projection Detail — Actual Basis ({cbam.certPriceScenario} EUA Price)
+                            {t('ui.results.cbam.table.title', { scenario: cbam.certPriceScenario })}
                         </h4>
                         <div className="overflow-x-auto">
                             <table className="text-xs">
                                 <thead>
                                     <tr>
-                                        <th>Year</th>
-                                        <th className="text-right">Import (t)</th>
-                                        <th className="text-right">Markup</th>
-                                        <th className="text-right">Intensity</th>
-                                        <th className="text-right">Embedded CO₂</th>
-                                        <th className="text-right">Payable %</th>
-                                        <th className="text-right">Payable tCO₂</th>
-                                        <th className="text-right">Cert €/t</th>
-                                        <th className="text-right">Gross €</th>
-                                        <th className="text-right">KZ ETS €</th>
-                                        <th className="text-right font-bold">Net Cost €</th>
-                                        <th className="text-right">€/t Al</th>
-                                        <th className="text-right">Al $/t</th>
-                                        <th className="text-right">% Price</th>
+                                        <th>{t('ui.results.cbam.table.year')}</th>
+                                        <th className="text-right">{t('ui.results.cbam.table.import')}</th>
+                                        <th className="text-right">{t('ui.results.cbam.table.markup')}</th>
+                                        <th className="text-right">{t('ui.results.cbam.table.intensity')}</th>
+                                        <th className="text-right">{t('ui.results.cbam.table.embedded')}</th>
+                                        <th className="text-right">{t('ui.results.cbam.table.payablePct')}</th>
+                                        <th className="text-right">{t('ui.results.cbam.table.payableT')}</th>
+                                        <th className="text-right">{t('ui.results.cbam.table.cert')}</th>
+                                        <th className="text-right">{t('ui.results.cbam.table.gross')}</th>
+                                        <th className="text-right">{t('ui.results.cbam.table.kz')}</th>
+                                        <th className="text-right font-bold">{t('ui.results.cbam.table.net')}</th>
+                                        <th className="text-right">{t('ui.results.cbam.table.perTonne')}</th>
+                                        <th className="text-right">{t('ui.results.cbam.table.pctPrice')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {actualProjection.rows.map(r => (
                                         <tr key={r.year}>
                                             <td className="font-semibold">{r.year}</td>
-                                            <td className="text-right font-mono">{r.importQty.toLocaleString()}</td>
+                                            <td className="text-right font-mono">{fmtInt(r.importQty)}</td>
                                             <td className="text-right font-mono">{(r.markup * 100).toFixed(0)}%</td>
                                             <td className="text-right font-mono">{r.intensity.toFixed(3)}</td>
-                                            <td className="text-right font-mono">{r.embeddedCO2.toLocaleString()}</td>
+                                            <td className="text-right font-mono">{fmtInt(r.embeddedCO2)}</td>
                                             <td className="text-right font-mono">{(r.payableShare * 100).toFixed(1)}%</td>
-                                            <td className="text-right font-mono">{r.payableEmissions.toLocaleString()}</td>
+                                            <td className="text-right font-mono">{fmtInt(r.payableEmissions)}</td>
                                             <td className="text-right font-mono">€{r.certPrice}</td>
-                                            <td className="text-right font-mono">€{r.grossCost.toLocaleString()}</td>
-                                            <td className="text-right font-mono text-green-600">−€{r.kzEtsDeduction.toLocaleString()}</td>
-                                            <td className="text-right font-mono font-bold text-indigo-700">€{r.netCost.toLocaleString()}</td>
+                                            <td className="text-right font-mono">€{fmtInt(r.grossCost)}</td>
+                                            <td className="text-right font-mono text-green-600">−€{fmtInt(r.kzEtsDeduction)}</td>
+                                            <td className="text-right font-mono font-bold text-indigo-700">€{fmtInt(r.netCost)}</td>
                                             <td className="text-right font-mono">€{r.costPerTonne.toFixed(2)}</td>
-                                            <td className="text-right font-mono">${r.alPrice.toLocaleString()}</td>
+                                            <td className="text-right font-mono">${fmtInt(r.alPrice)}</td>
                                             <td className="text-right font-mono">{r.costPctOfPrice.toFixed(2)}%</td>
                                         </tr>
                                     ))}
                                 </tbody>
                                 <tfoot>
                                     <tr className="border-t-2 border-slate-300 font-bold">
-                                        <td>Total</td>
+                                        <td>{t('ui.results.cbam.table.total')}</td>
                                         <td colSpan={7}></td>
-                                        <td className="text-right font-mono">€{actualProjection.totals.totalGrossCost.toLocaleString()}</td>
-                                        <td className="text-right font-mono text-green-600">−€{actualProjection.totals.totalKzEtsDeduction.toLocaleString()}</td>
-                                        <td className="text-right font-mono text-indigo-700">€{actualProjection.totals.totalNetCost.toLocaleString()}</td>
+                                        <td className="text-right font-mono">€{fmtInt(actualProjection.totals.totalGrossCost)}</td>
+                                        <td className="text-right font-mono text-green-600">−€{fmtInt(actualProjection.totals.totalKzEtsDeduction)}</td>
+                                        <td className="text-right font-mono text-indigo-700">€{fmtInt(actualProjection.totals.totalNetCost)}</td>
                                         <td colSpan={3}></td>
                                     </tr>
                                 </tfoot>
                             </table>
                         </div>
                         <div className="text-[10px] text-slate-400 mt-2">
-                            Source: EU Reg. 2025/2621 (default values), CBAM Reg. 2023/956 (phase-in). Estimate only — actual certificates at weekly ETS auction price.
+                            {t('ui.results.cbam.source')}
                         </div>
                     </div>
                 </div>

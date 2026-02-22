@@ -224,40 +224,6 @@ export const SECTOR_REQUIRED_TEMPLATES = {
 };
 
 /**
- * Check sector completeness for a set of emission blocks.
- * Returns { sectors: string[], missing: { sector, label }[], complete: boolean }
- *
- * @param {Array} emissionBlocks - current emission blocks from state
- */
-export function checkSectorCompleteness(emissionBlocks = []) {
-    // Infer active sectors from template IDs in use
-    const usedTemplateIds = new Set(emissionBlocks.map(b => b.templateId).filter(Boolean));
-    const activeSectors = new Set();
-    for (const tpl of PROCESS_TEMPLATES) {
-        if (usedTemplateIds.has(tpl.id) && tpl.sector !== 'Custom') {
-            activeSectors.add(tpl.sector);
-        }
-    }
-
-    const missing = [];
-    for (const sector of activeSectors) {
-        const rules = SECTOR_REQUIRED_TEMPLATES[sector] || [];
-        for (const rule of rules) {
-            const hasAny = rule.ids.some(id => usedTemplateIds.has(id));
-            if (!hasAny) {
-                missing.push({ sector, label: rule.label });
-            }
-        }
-    }
-
-    return {
-        sectors: [...activeSectors],
-        missing,
-        complete: missing.length === 0,
-    };
-}
-
-/**
  * Get templates for a specific sector.
  */
 export function getTemplatesBySector(sector) {
@@ -269,27 +235,6 @@ export function getTemplatesBySector(sector) {
  */
 export function getTemplateById(id) {
     return PROCESS_TEMPLATES.find(t => t.id === id) || null;
-}
-
-/**
- * Create a fresh emission block from a template, pre-filled with defaults.
- */
-export function instantiateTemplate(templateId, period, processId) {
-    const tpl = getTemplateById(templateId);
-    if (!tpl) return null;
-
-    return {
-        id: `eb_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        templateId: tpl.id,
-        period,
-        processId,
-        name: tpl.name,
-        outputGas: tpl.outputGas,
-        formula: tpl.formula,
-        formulaDisplay: tpl.formulaDisplay,
-        source: tpl.source,
-        parameters: tpl.parameters.map(p => ({ ...p, value: p.defaultValue })),
-    };
 }
 
 /**

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { getAuditLog, getAuditEntryCount, getAuditEntityTypes } from '../db/dal';
+import { useLanguage } from '../context/LanguageContext';
 import { ClipboardList, Search, Filter, RefreshCw, ChevronDown, ArrowRight, Plus, Pencil, Trash2, Copy } from 'lucide-react';
 
 const PAGE_SIZE = 50;
@@ -13,49 +14,48 @@ const ACTION_STYLES = {
 };
 const DEFAULT_ACTION = { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200', icon: Pencil, dot: 'bg-slate-400' };
 
-// Pretty entity type labels
-const ENTITY_LABELS = {
-    fuel_entry: 'Fuel Entry',
-    electricity_entry: 'Electricity',
-    process_event: 'Process Event',
-    emission_block: 'Emission Block',
-    process: 'Process',
-    installation: 'Installation',
-    boundary: 'Boundary',
-    product: 'Product',
-    production_output: 'Production',
-    allocation: 'Allocation',
-    gwp_set: 'GWP Set',
-    cbam_settings: 'CBAM Settings',
-};
-
-function formatEntityType(type) {
-    return ENTITY_LABELS[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+function getLocale(lang) {
+    switch (lang) {
+        case 'kk': return 'kk-KZ';
+        case 'ru': return 'ru-RU';
+        default: return 'en-GB';
+    }
 }
 
-function formatTimestamp(ts) {
+function formatTimestamp(ts, locale) {
     if (!ts) return '—';
     try {
         const d = new Date(ts);
-        return d.toLocaleString(undefined, {
+        return d.toLocaleString(locale, {
             month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'
         });
     } catch { return ts; }
 }
 
-function formatDate(ts) {
+function formatDate(ts, locale) {
     if (!ts) return 'Unknown Date';
     try {
         const d = new Date(ts);
-        return d.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        return d.toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     } catch { return ts; }
 }
 
 export default function AuditTrailView() {
+    const { t, language } = useLanguage();
     const [filterType, setFilterType] = useState('');
     const [searchId, setSearchId] = useState('');
     const [offset, setOffset] = useState(0);
     const [refreshKey, setRefreshKey] = useState(0);
+
+    const locale = getLocale(language);
+
+    // Helper to format entity types using translations
+    const formatEntityType = useCallback((type) => {
+        // Try to find translation key, fallback to formatted string
+        const key = `ui.audit.entityTypes.${type}`;
+        const translated = t(key);
+        return translated !== key ? translated : type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }, [t]);
 
     // Query data
     const filters = useMemo(() => ({
@@ -113,17 +113,17 @@ export default function AuditTrailView() {
                         <ClipboardList size={20} className="text-white" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-slate-800">Audit Trail</h2>
+                        <h2 className="text-xl font-bold text-slate-800">{t('ui.audit.title')}</h2>
                         <p className="text-xs text-slate-500">
-                            {totalCount} change{totalCount !== 1 ? 's' : ''} recorded
+                            {totalCount} {t('ui.audit.recorded')}
                         </p>
                     </div>
                 </div>
                 <button
                     onClick={handleRefresh}
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+                    className="btn-secondary btn-sm"
                 >
-                    <RefreshCw size={13} /> Refresh
+                    <RefreshCw size={13} /> {t('ui.audit.refresh')}
                 </button>
             </div>
 
@@ -134,9 +134,9 @@ export default function AuditTrailView() {
                     <select
                         value={filterType}
                         onChange={(e) => handleFilterChange(e.target.value)}
-                        className="pl-9 pr-8 py-2 text-sm border border-slate-200 rounded-lg bg-white appearance-none cursor-pointer focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all outline-none"
+                        className="form-select pl-9 pr-8 py-2 text-sm"
                     >
-                        <option value="">All entities</option>
+                        <option value="">{t('ui.audit.filters.all')}</option>
                         {entityTypes.map(t => (
                             <option key={t} value={t}>{formatEntityType(t)}</option>
                         ))}
@@ -148,8 +148,8 @@ export default function AuditTrailView() {
                         type="text"
                         value={searchId}
                         onChange={(e) => handleSearchChange(e.target.value)}
-                        placeholder="Search by entity ID..."
-                        className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all outline-none"
+                        placeholder={t('ui.audit.filters.search')}
+                        className="form-input w-full pl-9 pr-3 py-2 text-sm"
                     />
                 </div>
             </div>
@@ -158,8 +158,8 @@ export default function AuditTrailView() {
             {entries.length === 0 ? (
                 <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
                     <ClipboardList size={40} className="mx-auto text-slate-300 mb-3" />
-                    <p className="text-sm text-slate-500 font-medium">No audit entries found</p>
-                    <p className="text-xs text-slate-400 mt-1">Changes will appear here as you edit data</p>
+                    <p className="text-sm text-slate-500 font-medium">{t('ui.audit.empty.title')}</p>
+                    <p className="text-xs text-slate-400 mt-1">{t('ui.audit.empty.desc')}</p>
                 </div>
             ) : (
                 <div className="space-y-6">
@@ -168,11 +168,11 @@ export default function AuditTrailView() {
                             {/* Date header */}
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                                    {formatDate(dateKey)}
+                                    {formatDate(dateKey, locale)}
                                 </div>
                                 <div className="flex-1 h-px bg-slate-200" />
                                 <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                                    {dayEntries.length} change{dayEntries.length !== 1 ? 's' : ''}
+                                    {dayEntries.length} {t('ui.audit.timeline.changes')}
                                 </span>
                             </div>
 
@@ -211,10 +211,10 @@ export default function AuditTrailView() {
                                                         {/* User + Timestamp */}
                                                         <div className="flex items-center gap-2 flex-shrink-0">
                                                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-medium">
-                                                                {entry.changed_by || 'system'}
+                                                                {entry.changed_by || t('ui.audit.timeline.system')}
                                                             </span>
                                                             <span className="text-[10px] text-slate-400 whitespace-nowrap">
-                                                                {formatTimestamp(entry.changed_at)}
+                                                                {formatTimestamp(entry.changed_at, locale)}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -242,7 +242,7 @@ export default function AuditTrailView() {
                                                     {/* Change reason */}
                                                     {entry.change_reason && (
                                                         <div className="mt-1 text-[11px] text-slate-500 italic">
-                                                            Reason: {entry.change_reason}
+                                                            {t('ui.audit.timeline.reason')}: {entry.change_reason}
                                                         </div>
                                                     )}
                                                 </div>
@@ -260,23 +260,23 @@ export default function AuditTrailView() {
             {totalCount > 0 && (
                 <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-200">
                     <span className="text-xs text-slate-500">
-                        Showing {offset + 1}–{showingEnd} of {totalCount}
+                        {t('ui.audit.pagination.showing')} {offset + 1}–{showingEnd} {t('ui.audit.pagination.of')} {totalCount}
                     </span>
                     <div className="flex gap-2">
                         {offset > 0 && (
                             <button
                                 onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-                                className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                                className="btn-secondary btn-sm"
                             >
-                                ← Newer
+                                ← {t('ui.audit.pagination.newer')}
                             </button>
                         )}
                         {hasMore && (
                             <button
                                 onClick={() => setOffset(offset + PAGE_SIZE)}
-                                className="px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
+                                className="btn-secondary btn-sm"
                             >
-                                Older →
+                                {t('ui.audit.pagination.older')} →
                             </button>
                         )}
                     </div>

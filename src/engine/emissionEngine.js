@@ -101,6 +101,8 @@ export const GWP_AR6 = {
     C2F6: 11100,
 };
 
+export const GWP_SOURCE = 'Table 6, Annex II, Reg (EU) 2025/2547';
+
 // ─── Core Calculation Functions ──────────────────────────────
 
 /**

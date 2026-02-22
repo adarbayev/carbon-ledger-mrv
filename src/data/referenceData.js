@@ -27,27 +27,6 @@ export const FUEL_TYPES = [
     { id: 'other', name: 'Other (custom)', ncv: 0, efCO2: 0, defaultUnit: 't' },
 ];
 
-// Helper: calculate tCO₂ from fuel entry
-// Returns { co2: number, total: number } — total = co2 for now
-// (multi-gas CH₄/N₂O per-fuel to be added in future phase)
-export function calcFuelEmissions(fuelEntry) {
-    const fuelType = FUEL_TYPES.find(f => f.id === fuelEntry.fuelTypeId);
-    let co2;
-    if (!fuelType || fuelType.id === 'other') {
-        const ncv = fuelEntry.customNcv || 0;
-        const ef = fuelEntry.customEf || 0;
-        co2 = (parseFloat(fuelEntry.quantity) || 0) * ncv * ef / 1000;
-    } else {
-        co2 = (parseFloat(fuelEntry.quantity) || 0) * fuelType.ncv * fuelType.efCO2 / 1000;
-    }
-    return { co2, total: co2 };
-}
-
-// Helper: calculate tCO₂ from electricity entry
-export function calcElecEmissions(elecEntry) {
-    return (parseFloat(elecEntry.mwh) || 0) * (parseFloat(elecEntry.ef) || 0);
-}
-
 
 // ─── CBAM CN Codes (Regulation 2023/956, Annex I) ────────────
 // isComplex: true if the good uses other CBAM goods as precursors
@@ -141,27 +120,12 @@ export function getSectors() {
 // ─── Grid Emission Factors (tCO₂/MWh) ───────────────────────
 // Sources: IEA 2023, national statistics
 export const GRID_EF_BY_COUNTRY = [
-    { code: 'KZ', name: 'Kazakhstan', ef: 0.636 },
-    { code: 'CN', name: 'China', ef: 0.581 },
-    { code: 'IN', name: 'India', ef: 0.708 },
-    { code: 'TR', name: 'Turkey', ef: 0.440 },
-    { code: 'RU', name: 'Russia', ef: 0.340 },
-    { code: 'UA', name: 'Ukraine', ef: 0.345 },
-    { code: 'EG', name: 'Egypt', ef: 0.450 },
-    { code: 'ZA', name: 'South Africa', ef: 0.928 },
-    { code: 'BR', name: 'Brazil', ef: 0.074 },
-    { code: 'US', name: 'United States', ef: 0.379 },
-    { code: 'GB', name: 'United Kingdom', ef: 0.207 },
-    { code: 'DE', name: 'Germany', ef: 0.338 },
-    { code: 'FR', name: 'France', ef: 0.052 },
-    { code: 'PL', name: 'Poland', ef: 0.681 },
-    { code: 'NL', name: 'Netherlands', ef: 0.328 },
-    { code: 'IT', name: 'Italy', ef: 0.257 },
-    { code: 'ES', name: 'Spain', ef: 0.149 },
-    { code: 'JP', name: 'Japan', ef: 0.457 },
-    { code: 'KR', name: 'South Korea', ef: 0.415 },
-    { code: 'AU', name: 'Australia', ef: 0.656 },
-    { code: 'OTHER', name: 'Other (enter manually)', ef: 0 },
+    { code: 'KAZ', name: 'Kazakhstan', ef: 0.650 },
+    { code: 'CHN', name: 'China', ef: 0.592 },
+    { code: 'TUR', name: 'Turkey', ef: 0.4227 },
+    { code: 'IND', name: 'India', ef: 0.735 },
+    { code: 'RUS', name: 'Russia', ef: 0.350 },
+    { code: 'OTH', name: 'Other', ef: 0.000 },
 ];
 
 // Helper: get grid EF for a country code

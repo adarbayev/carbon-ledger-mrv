@@ -90,7 +90,9 @@ async function _doInit() {
     const savedData = await loadFromIDB();
     if (savedData) {
         dbInstance = new SQL.Database(new Uint8Array(savedData));
-        console.log('[DB] Restored from IndexedDB');
+        // Always run schema to ensure any new tables/indexes are created (migrations)
+        dbInstance.run(schemaSQL);
+        console.log('[DB] Restored from IndexedDB and ensured schema');
     } else {
         // Fresh database — run schema
         dbInstance = new SQL.Database();
