@@ -17,6 +17,7 @@ export const GWP = {
 // Calculation: tCO₂ = mass_tonnes × NCV × efCO2 / 1000
 export const FUEL_TYPES = [
     { id: 'natural_gas', name: 'Natural Gas', ncv: 48.0, efCO2: 56.1, defaultUnit: 't' },
+    { id: 'coke_oven_gas', name: 'Coke Oven Gas', ncv: 44.0, efCO2: 44.4, defaultUnit: 't' },
     { id: 'diesel', name: 'Diesel / Gas Oil', ncv: 43.0, efCO2: 74.1, defaultUnit: 't' },
     { id: 'hard_coal', name: 'Hard Coal', ncv: 25.8, efCO2: 94.6, defaultUnit: 't' },
     { id: 'coke', name: 'Coke', ncv: 28.2, efCO2: 107.0, defaultUnit: 't' },

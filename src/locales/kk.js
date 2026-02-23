@@ -520,6 +520,7 @@ export const kk = {
         },
         fuel: {
             natural_gas: 'Табиғи газ',
+            coke_oven_gas: 'Кокс газы',
             diesel: 'Дизель / Газ майы',
             hard_coal: 'Тас көмір',
             coke: 'Кокс',

@@ -484,6 +484,7 @@ export const en = {
         },
         fuel: {
             natural_gas: 'Natural Gas',
+            coke_oven_gas: 'Coke Oven Gas',
             diesel: 'Diesel / Gas Oil',
             hard_coal: 'Hard Coal',
             coke: 'Coke',

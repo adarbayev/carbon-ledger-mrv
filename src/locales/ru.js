@@ -518,6 +518,7 @@ export const ru = {
         },
         fuel: {
             natural_gas: 'Природный газ',
+            coke_oven_gas: 'Коксовый газ',
             diesel: 'Дизель / Газойль',
             hard_coal: 'Каменный уголь',
             coke: 'Кокс',

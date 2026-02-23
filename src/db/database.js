@@ -166,15 +166,21 @@ export function query(sql, params = []) {
  */
 export function execute(sql, params = []) {
     const db = getDb();
-    if (params.length > 0) {
-        const stmt = db.prepare(sql);
-        stmt.bind(params);
-        stmt.step();
-        stmt.free();
-    } else {
-        db.run(sql);
+    try {
+        if (params.length > 0) {
+            const stmt = db.prepare(sql);
+            stmt.bind(params);
+            stmt.step();
+            stmt.free();
+        } else {
+            db.run(sql);
+        }
+        return db.getRowsModified();
+    } catch (err) {
+        console.error("SQL Execute Error:", err, "SQL:", sql, "Params:", params);
+        window.LastSqlError = `${err.message} | SQL: ${sql.substring(0, 50)} | Params: ${JSON.stringify(params)}`;
+        throw err;
     }
-    return db.getRowsModified();
 }
 
 /**

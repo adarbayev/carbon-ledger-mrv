@@ -76,79 +76,72 @@ export function seedDemoData() {
     });
 
     // ─── Process Events (legacy — from Excel Sheet 03B) ──────
-    // Per-month anode consumption + PFC parameters for P01 (Electrolysis)
-
-    PROCESS_EVENTS_MONTHS.forEach((m, idx) => {
-        const base = `pe_${idx + 1}`;
-        const events = [
-            [`${base}_1`, m.period, 'P01', 'ANODE', 'metal_production', m.metalProd, 't', 'Production report'],
-            [`${base}_2`, m.period, 'P01', 'ANODE', 'net_anode_consumption', 420, 'kg/t Al', 'Anode usage log'],
-            [`${base}_3`, m.period, 'P01', 'ANODE', 'anode_carbon_fraction', 0.95, 'fraction', 'Lab analysis'],
-            [`${base}_4`, m.period, 'P01', 'ANODE', 'anode_sulfur_fraction', 0.02, 'fraction', 'Lab analysis'],
-            [`${base}_5`, m.period, 'P01', 'ANODE', 'anode_ash_fraction', 0.01, 'fraction', 'Lab analysis'],
-            [`${base}_6`, m.period, 'P01', 'PFC', 'aem_minutes', 0.25, 'min/cell-day', 'Potline system'],
-            [`${base}_7`, m.period, 'P01', 'PFC', 'cf4_slope_factor', 0.00006, 't CF4 / (t Al × AEM)', 'IPCC default'],
-            [`${base}_8`, m.period, 'P01', 'PFC', 'c2f6_cf4_ratio', 0.1, 'ratio', 'IPCC default'],
-        ];
-        events.forEach(([id, period, processId, eventType, param, value, unit, source]) => {
-            execute(
-                `INSERT INTO process_events (version_id, stable_id, version_number, installation_id, period, process_id, event_type, parameter, value, unit, data_source) VALUES (?, ?, 1, 'default', ?, ?, ?, ?, ?, ?, ?)`,
-                [`${id}_v1`, id, period, processId, eventType, param, value, unit, source]
-            );
-        });
-    });
-
+    // The Steel demo doesn't use standard process events yet. All calculations are via emission_blocks.
     // ─── Emission Blocks (formula-based process emissions) ───
-    // Creates blocks from templates for the same aluminium demo data
+    // Creates blocks from templates for the integrated steel demo data
     PROCESS_EVENTS_MONTHS.forEach((m, idx) => {
         const i = idx + 1;
-        // Anode Consumption CO₂
+        const ironProd = m.ironProd || 0;
+
+        // P01: Sinter Plant Reducing Agent (Coke breeze proxy)
         execute(
             `INSERT INTO emission_blocks (id, installation_id, period, process_id, template_id, name, output_gas, formula, formula_display, parameters, source)
-             VALUES (?, 'default', ?, 'P01', 'al_anode', 'Anode Consumption CO₂', 'CO2', ?, ?, ?, ?)`,
+             VALUES (?, 'default', ?, 'P01', 'steel_reducing_agent', 'Sinter Reducing Agent (Coke)', 'CO2', ?, ?, ?, ?)`,
             [
-                `eb_anode_${i}`, m.period,
-                'production * anode_rate / 1000 * (carbon - sulfur - ash) * 44 / 12',
-                'Production × Anode Rate ÷ 1000 × (C − S − Ash) × 44/12',
+                `eb_sinter_coke_${i}`, m.period,
+                'agent_mass * carbon_content * 44 / 12',
+                'Agent Mass × C Content × (44/12)',
                 JSON.stringify([
-                    { key: 'production', label: 'Metal Production', unit: 't', value: m.metalProd },
-                    { key: 'anode_rate', label: 'Net Anode Consumption', unit: 'kg/t Al', value: 420 },
-                    { key: 'carbon', label: 'Carbon Fraction', unit: 'fraction', value: 0.95 },
-                    { key: 'sulfur', label: 'Sulfur Fraction', unit: 'fraction', value: 0.02 },
-                    { key: 'ash', label: 'Ash Fraction', unit: 'fraction', value: 0.01 },
+                    { key: 'agent_mass', label: 'Coke Breeze Mass', unit: 't', value: Math.round(ironProd * 0.05) }, // 50kg/t
+                    { key: 'carbon_content', label: 'Carbon Content', unit: 'fraction', value: 0.82 },
                 ]),
                 'IPCC 2006 Vol.3 Ch.4',
             ]
         );
-        // PFC — CF₄
+
+        // P02: Blast Furnace Reducing Agent (Coke + PCI proxy)
         execute(
             `INSERT INTO emission_blocks (id, installation_id, period, process_id, template_id, name, output_gas, formula, formula_display, parameters, source)
-             VALUES (?, 'default', ?, 'P01', 'al_pfc_cf4', 'PFC — CF₄ Emissions', 'CF4', ?, ?, ?, ?)`,
+             VALUES (?, 'default', ?, 'P02', 'steel_reducing_agent', 'BF Reducing Agent (Coke/Coal)', 'CO2', ?, ?, ?, ?)`,
             [
-                `eb_cf4_${i}`, m.period,
-                'production * aem * slope',
-                'Production × AEM × Slope Factor',
+                `eb_bf_agent_${i}`, m.period,
+                'agent_mass * carbon_content * 44 / 12',
+                'Agent Mass × C Content × (44/12)',
                 JSON.stringify([
-                    { key: 'production', label: 'Metal Production', unit: 't', value: m.metalProd },
-                    { key: 'aem', label: 'Anode Effect Minutes', unit: 'min/cell·day', value: 0.25 },
-                    { key: 'slope', label: 'CF₄ Slope Factor', unit: 't CF₄/(t Al × AEM)', value: 0.00006 },
+                    { key: 'agent_mass', label: 'Coke + Coal Mass', unit: 't', value: Math.round(ironProd * 0.45) }, // 450kg/t
+                    { key: 'carbon_content', label: 'Carbon Content', unit: 'fraction', value: 0.85 },
                 ]),
                 'IPCC 2006 Vol.3 Ch.4',
             ]
         );
-        // PFC — C₂F₆
+
+        // P02: Blast Furnace Fluxes (Limestone/Dolomite)
         execute(
             `INSERT INTO emission_blocks (id, installation_id, period, process_id, template_id, name, output_gas, formula, formula_display, parameters, source)
-             VALUES (?, 'default', ?, 'P01', 'al_pfc_c2f6', 'PFC — C₂F₆ Emissions', 'C2F6', ?, ?, ?, ?)`,
+             VALUES (?, 'default', ?, 'P02', 'steel_limestone', 'BF Flux Calcination', 'CO2', ?, ?, ?, ?)`,
             [
-                `eb_c2f6_${i}`, m.period,
-                'production * aem * slope * ratio',
-                'Production × AEM × Slope × C₂F₆/CF₄ Ratio',
+                `eb_bf_flux_${i}`, m.period,
+                'limestone * 0.44 + dolomite * 0.477',
+                'Limestone × 0.44 + Dolomite × 0.477',
                 JSON.stringify([
-                    { key: 'production', label: 'Metal Production', unit: 't', value: m.metalProd },
-                    { key: 'aem', label: 'Anode Effect Min', unit: 'min/cell·day', value: 0.25 },
-                    { key: 'slope', label: 'CF₄ Slope Factor', unit: 't CF₄/(t Al × AEM)', value: 0.00006 },
-                    { key: 'ratio', label: 'C₂F₆/CF₄ Ratio', unit: 'ratio', value: 0.1 },
+                    { key: 'limestone', label: 'Limestone Consumption', unit: 't', value: Math.round(ironProd * 0.1) }, // 100kg/t
+                    { key: 'dolomite', label: 'Dolomite Consumption', unit: 't', value: Math.round(ironProd * 0.02) },
+                ]),
+                'IPCC 2006 Vol.3 Ch.4',
+            ]
+        );
+
+        // P03: Steelmaking (Carbon Oxidation Proxy)
+        execute(
+            `INSERT INTO emission_blocks (id, installation_id, period, process_id, template_id, name, output_gas, formula, formula_display, parameters, source)
+             VALUES (?, 'default', ?, 'P03', 'steel_reducing_agent', 'BOF Carbon Oxidation', 'CO2', ?, ?, ?, ?)`,
+            [
+                `eb_bof_carbon_${i}`, m.period,
+                'agent_mass * carbon_content * 44 / 12',
+                'Agent Mass × C Content × (44/12)',
+                JSON.stringify([
+                    { key: 'agent_mass', label: 'Hot Metal C Reduction', unit: 't', value: Math.round(ironProd * 1.05) }, // Basis hot metal
+                    { key: 'carbon_content', label: 'Change in C Content', unit: 'fraction', value: 0.04 }, // 4% to 0.05%
                 ]),
                 'IPCC 2006 Vol.3 Ch.4',
             ]

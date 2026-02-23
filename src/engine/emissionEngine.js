@@ -30,6 +30,17 @@ export const DEFAULT_EMISSION_FACTORS = {
         efN2O: 0.1,       // kg N₂O per TJ
         source: 'IPCC 2006 Vol.2 Ch.2 Table 2.2',
     },
+    coke_oven_gas: {
+        name: 'Coke Oven Gas',
+        ncv: 44.0,        // GJ/t (Typical proxy for energy derived)
+        ncvUnit: 'GJ/t',
+        unitFamily: 'mass',
+        defaultUnit: 't',
+        efCO2: 44400,     // kg CO₂ per TJ
+        efCH4: 1,         // kg CH₄ per TJ
+        efN2O: 0.1,       // kg N₂O per TJ
+        source: 'IPCC 2006 Vol.2 Ch.2 Table 2.2',
+    },
     diesel: {
         name: 'Diesel',
         ncv: 43.0,
