@@ -181,9 +181,13 @@ export function getMarkupSchedule(sector) {
 
 /** Get default value for a specific CN code from KZ defaults */
 export function getKzDefault(cnCode) {
+    const rawFull = (cnCode || '').replace(/\s+/g, '');
     for (const sector of Object.keys(KZ_DEFAULT_VALUES)) {
-        const entry = KZ_DEFAULT_VALUES[sector].find(v => v.cnCode === cnCode);
-        if (entry) return { ...entry, sector };
+        const match = KZ_DEFAULT_VALUES[sector].find(v => {
+            const dictRaw = (v.cnCode || '').replace(/\s+/g, '');
+            return rawFull === dictRaw || (rawFull.length > dictRaw.length && rawFull.startsWith(dictRaw));
+        });
+        if (match) return { ...match, sector };
     }
     return null;
 }

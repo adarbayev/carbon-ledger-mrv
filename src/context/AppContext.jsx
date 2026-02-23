@@ -773,7 +773,7 @@ const emptyState = {
     cbamSettings: {
         basis: 'ACTUAL', scope: 'DIRECT_ONLY', certPriceScenario: 'MID',
         alPriceScenario: 'MID', carbonCreditEligible: true, carbonCreditScenario: 'HIGH',
-        importedQty: 110000, cnCode: '7601', goodCategory: 'Aluminium',
+        importedQty: 110000, cnCode: '7208 39 00', goodCategory: 'Iron and steel',
     },
     isDirty: false,
     activeTab: 'dashboard',

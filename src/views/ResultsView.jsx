@@ -77,6 +77,10 @@ export default function ResultsView() {
     const cbam = state.cbamSettings;
     const mainProduct = productResults.find(p => !p.isExcluded);
 
+    // Dynamically fallback to mainProduct's cnInfo if available
+    const activeCnCode = mainProduct?.cnInfo?.code || cbam.cnCode;
+    const activeCategory = mainProduct?.cnInfo?.sector || cbam.goodCategory;
+
     const baseConfig = {
         scope: cbam.scope,
         certPriceScenario: cbam.certPriceScenario,
@@ -84,8 +88,8 @@ export default function ResultsView() {
         carbonCreditEligible: cbam.carbonCreditEligible,
         carbonCreditScenario: cbam.carbonCreditScenario,
         importedQty: parseFloat(cbam.importedQty) || 0,
-        cnCode: cbam.cnCode,
-        goodCategory: cbam.goodCategory,
+        cnCode: activeCnCode,
+        goodCategory: activeCategory,
         seeDirect: mainProduct?.seeDirect || 0,
         seeIndirect: mainProduct?.seeIndirect || 0,
     };
@@ -323,7 +327,7 @@ export default function ResultsView() {
                         <Calculator size={20} className="text-indigo-500" />
                         <h3 className="text-lg font-semibold text-slate-700">{t('ui.results.cbam.title')}</h3>
                         <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">2026–2034</span>
-                        <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{cbam.goodCategory}</span>
+                        <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{activeCategory}</span>
                         <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{cbam.scope === 'DIRECT_ONLY' ? 'Direct' : 'Direct + Indirect'}</span>
                     </div>
 
@@ -394,7 +398,7 @@ export default function ResultsView() {
                             {/* Auto-detected info */}
                             <div className="bg-slate-50 rounded-lg p-3 space-y-1.5 text-[11px] text-slate-500">
                                 <div className="font-semibold text-slate-600 text-xs mb-1.5">{t('ui.results.cbam.controls.autoDetected')}</div>
-                                <div className="flex justify-between"><span>{t('ui.results.cbam.controls.sector')}</span><span className="font-medium text-slate-700">{cbam.goodCategory}</span></div>
+                                <div className="flex justify-between"><span>{t('ui.results.cbam.controls.sector')}</span><span className="font-medium text-slate-700">{activeCategory}</span></div>
                                 <div className="flex justify-between"><span>{t('ui.results.cbam.controls.scope')}</span><span className="font-medium text-slate-700">{cbam.scope === 'DIRECT_ONLY' ? 'Direct only' : 'Direct + Indirect'}</span></div>
                                 <div className="flex justify-between"><span>{t('ui.results.cbam.controls.seeActual')}</span><span className="font-mono text-slate-700">{(mainProduct?.seeDirect + mainProduct?.seeIndirect || 0).toFixed(3)}</span></div>
                             </div>

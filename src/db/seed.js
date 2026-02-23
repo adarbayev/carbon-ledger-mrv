@@ -180,7 +180,7 @@ export function seedDemoData() {
 
     // ─── CBAM Settings ───────────────────────────────
     execute(
-        `INSERT INTO cbam_settings (id, basis, scope, cert_price_scenario, al_price_scenario, carbon_credit_eligible, carbon_credit_scenario, imported_qty, cn_code, good_category) VALUES ('default', 'ACTUAL', 'DIRECT_ONLY', 'MID', 'MID', 1, 'HIGH', 110000, '7601', 'Aluminium')`
+        `INSERT INTO cbam_settings (id, basis, scope, cert_price_scenario, al_price_scenario, carbon_credit_eligible, carbon_credit_scenario, imported_qty, cn_code, good_category) VALUES ('default', 'ACTUAL', 'DIRECT_ONLY', 'MID', 'MID', 1, 'HIGH', 110000, '7208 39 00', 'Iron and steel')`
     );
 
     // ─── Allocation Settings ─────────────────────────
