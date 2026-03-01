@@ -353,13 +353,37 @@ export function calcEmissionBlock(block, gwp = GWP_AR6) {
  * Calculate total emissions for an installation for a given period.
  * Aggregates combustion + electricity + process emissions across all processes.
  * Supports both legacy processEvents AND new emissionBlocks.
+ * When boundaries are provided, only includes data for processes that are within included boundaries.
  * 
- * @param {Object} data - { fuels, electricity, processEvents, emissionBlocks, gwp }
+ * @param {Object} data - { fuels, electricity, processEvents, emissionBlocks, gwp, boundaries }
  * @returns {Object} Comprehensive emissions result with lineage
  */
-export function calculateTotalEmissions({ fuels = [], electricity = [], processEvents = [], emissionBlocks = [], gwp = GWP_AR6 }) {
+export function calculateTotalEmissions({ fuels = [], electricity = [], processEvents = [], emissionBlocks = [], gwp = GWP_AR6, boundaries = null }) {
+    // ─── Boundary Filtering ───
+    // If boundaries are provided, filter activity data to only include entries
+    // for processes that belong to included boundaries
+    let filteredFuels = fuels;
+    let filteredElectricity = electricity;
+    let filteredProcessEvents = processEvents;
+    let filteredEmissionBlocks = emissionBlocks;
+
+    if (boundaries && boundaries.length > 0) {
+        const includedProcessIds = new Set(
+            boundaries
+                .filter(b => b.included && b.processId)
+                .map(b => b.processId)
+        );
+        // Also include entries that have no process_id (unassigned) — don't lose orphan data
+        const isIncluded = (processId) => !processId || includedProcessIds.has(processId);
+
+        filteredFuels = fuels.filter(e => isIncluded(e.process_id || e.processId));
+        filteredElectricity = electricity.filter(e => isIncluded(e.process_id || e.processId));
+        filteredProcessEvents = processEvents.filter(e => isIncluded(e.process_id || e.processId));
+        filteredEmissionBlocks = emissionBlocks.filter(e => isIncluded(e.processId || e.process_id));
+    }
+
     // ─── Combustion (Scope 1 — Direct) ───
-    const combustionResults = fuels.map(entry => ({
+    const combustionResults = filteredFuels.map(entry => ({
         entryId: entry.stable_id || entry.stableId || entry.id,
         processId: entry.process_id || entry.processId,
         period: entry.period,
@@ -375,7 +399,7 @@ export function calculateTotalEmissions({ fuels = [], electricity = [], processE
     };
 
     // ─── Electricity (Scope 2 — Indirect) ───
-    const electricityResults = electricity.map(entry => ({
+    const electricityResults = filteredElectricity.map(entry => ({
         entryId: entry.stable_id || entry.stableId || entry.id,
         processId: entry.process_id || entry.processId,
         period: entry.period,
@@ -388,7 +412,7 @@ export function calculateTotalEmissions({ fuels = [], electricity = [], processE
 
     // ─── Process Events (Scope 1 — Direct: Legacy Anode + PFC) ───
     const eventsByPeriod = {};
-    processEvents.forEach(evt => {
+    filteredProcessEvents.forEach(evt => {
         const key = `${evt.period}_${evt.process_id || evt.processId}`;
         if (!eventsByPeriod[key]) eventsByPeriod[key] = {};
         eventsByPeriod[key][evt.parameter] = evt.value;
@@ -428,7 +452,7 @@ export function calculateTotalEmissions({ fuels = [], electricity = [], processE
 
     // ─── Emission Blocks (Scope 1 — Direct: Generic formula-based) ───
     let totalBlockCO2e = 0;
-    const blockResults = emissionBlocks.map(block => {
+    const blockResults = filteredEmissionBlocks.map(block => {
         const result = calcEmissionBlock(block, gwp);
         totalBlockCO2e += result.co2e;
         return {
@@ -447,7 +471,7 @@ export function calculateTotalEmissions({ fuels = [], electricity = [], processE
     // ─── Totals ───
     // Emission blocks replace legacy process events for direct emissions
     // If blocks exist, use them instead of legacy; otherwise fall back to legacy
-    const useBlocks = emissionBlocks.length > 0;
+    const useBlocks = filteredEmissionBlocks.length > 0;
     const processDirectCO2e = useBlocks
         ? totalBlockCO2e
         : (totalAnodeCO2 + totalPFCCO2e);

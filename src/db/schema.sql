@@ -15,7 +15,9 @@ CREATE TABLE IF NOT EXISTS installations (
   reviewer_name TEXT,
   review_date TEXT,
   submit_date TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT (datetime('now')),
+  latitude REAL,
+  longitude REAL
 );
 
 -- Source streams / boundaries
@@ -24,6 +26,9 @@ CREATE TABLE IF NOT EXISTS boundaries (
   installation_id TEXT REFERENCES installations(id),
   name TEXT NOT NULL,
   included INTEGER DEFAULT 1,
+  process_id TEXT REFERENCES processes(id),
+  boundary_type TEXT DEFAULT 'process',
+  scope_tag TEXT DEFAULT 'direct',
   notes TEXT,
   evidence TEXT
 );

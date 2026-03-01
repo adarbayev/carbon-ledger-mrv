@@ -14,7 +14,8 @@ export default function ReportView() {
         electricity: state.activity.electricity,
         processEvents: state.processEvents || [],
         emissionBlocks: state.emissionBlocks || [],
-    }), [state.activity, state.processEvents, state.emissionBlocks]);
+        boundaries: state.boundaries || [],
+    }), [state.activity, state.processEvents, state.emissionBlocks, state.boundaries]);
 
     const pcf = useMemo(() => calculatePCF(
         emissions, state.products, state.allocationSettings

@@ -45,9 +45,9 @@ export function seedDemoData() {
     );
 
     // ─── Boundaries ──────────────────────────────────
-    BOUNDARIES_DATA.forEach(([id, name, included, notes]) => {
-        execute('INSERT INTO boundaries (id, installation_id, name, included, notes) VALUES (?, ?, ?, ?, ?)',
-            [id, 'default', name, included, notes]);
+    BOUNDARIES_DATA.forEach(([id, name, included, notes, processId, boundaryType, scopeTag]) => {
+        execute('INSERT INTO boundaries (id, installation_id, name, included, process_id, boundary_type, scope_tag, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [id, 'default', name, included, processId || null, boundaryType || 'process', scopeTag || 'direct', notes]);
     });
 
     // ─── Processes ───────────────────────────────────

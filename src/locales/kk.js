@@ -2,7 +2,7 @@ export const kk = {
     ui: {
         sidebar: {
             dashboard: 'Бақылау тақтасы',
-            boundaries: 'Шекаралар',
+            boundaries: 'Қондырғы',
             processes: 'Процестер',
             activity: 'Қызмет',
             allocation: 'Үлестіру',
@@ -47,8 +47,25 @@ export const kk = {
             country: 'Ел',
             periodStart: 'Есеп беру басы',
             periodEnd: 'Есеп беру соңы',
+            latitude: 'Ендік (Latitude)',
+            longitude: 'Бойлық (Longitude)',
+            enterCoordinates: 'Картадан қондырғыны көру үшін ендік пен бойлықты енгізіңіз.',
             operationalBoundaries: 'Операциялық шекаралар',
             description: 'Осы бағалауға кіретін қызмет түрлерін таңдаңыз.',
+            sections: {
+                productionProcesses: 'Өндірістік процестер',
+                sharedUtilities: 'Ортақ коммуникациялар',
+                external: 'Сыртқы / Қамту аясынан тыс',
+            },
+            scope: 'Қамту',
+            scopeTags: {
+                direct: 'Тікелей (Қамту 1)',
+                indirect: 'Жанама (Қамту 2)',
+                excluded: 'Алынып тасталған',
+            },
+            addItem: 'Қосу',
+            noItemsAdd: 'Элементтер жоқ. Қосу үшін «Қосу» батырмасын басыңыз.',
+            autoPopulated: 'Жоғарыдағы процестерден автоматты түрде толтырылады.',
             table: {
                 incl: 'Қосу',
                 item: 'Шекара элементі',
@@ -471,7 +488,7 @@ export const kk = {
         // --- Sidebar & General Multi-Site ---
         sidebar: {
             dashboard: "Басқару тақтасы",
-            boundaries: "Шекаралар",
+            boundaries: "Қондырғы",
             processes: "Процестер",
             // ...
             activity: "Белсенділік",

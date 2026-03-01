@@ -27,7 +27,8 @@ export default function DashboardView() {
         electricity: state.activity.electricity,
         processEvents: state.processEvents || [],
         emissionBlocks: state.emissionBlocks || [],
-    }), [state.activity.fuels, state.activity.electricity, state.processEvents, state.emissionBlocks]);
+        boundaries: state.boundaries || [],
+    }), [state.activity.fuels, state.activity.electricity, state.processEvents, state.emissionBlocks, state.boundaries]);
 
     const directEmissions = emissionResult.summary.directCO2e;
     const indirectEmissions = emissionResult.electricity.totals.co2e;

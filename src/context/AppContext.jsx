@@ -76,6 +76,8 @@ function buildStateFromDB(installationId = 'default') {
             reviewerName: installation.reviewer_name || '',
             reviewDate: installation.review_date || '',
             submitDate: installation.submit_date || '',
+            latitude: installation.latitude || '',
+            longitude: installation.longitude || '',
             lastSaved: null,
         } : {
             installationName: 'New Installation',
@@ -87,35 +89,22 @@ function buildStateFromDB(installationId = 'default') {
             reviewerName: '',
             reviewDate: '',
             submitDate: '',
+            latitude: '',
+            longitude: '',
             lastSaved: null,
         },
         boundaries: boundaries.length > 0 ? boundaries.map(b => {
-            // Map legacy names to translation keys
-            const nameKeyMap = {
-                'Electrolysis potlines': 'electrolysis',
-                'Casting & ingot line': 'casting',
-                'Off-gas collection & dry scrubbing': 'scrubbing',
-                'Fuel combustion (boilers/heaters)': 'combustion',
-                'Anode baking plant': 'anode',
-                'Grid electricity import': 'grid'
-            };
-            const key = nameKeyMap[b.name];
             return {
                 id: b.id,
-                key: key,
                 name: b.name,
                 included: !!b.included,
+                processId: b.process_id || null,
+                boundaryType: b.boundary_type || 'process',
+                scopeTag: b.scope_tag || 'direct',
                 notes: b.notes || '',
                 evidence: b.evidence || '',
             };
-        }) : [
-            { id: 'b1', key: 'electrolysis', name: 'Electrolysis potlines', included: true, notes: '', evidence: '' },
-            { id: 'b2', key: 'casting', name: 'Casting & ingot line', included: true, notes: '', evidence: '' },
-            { id: 'b3', key: 'scrubbing', name: 'Off-gas collection & dry scrubbing', included: true, notes: '', evidence: '' },
-            { id: 'b4', key: 'combustion', name: 'Fuel combustion (boilers/heaters)', included: true, notes: '', evidence: '' },
-            { id: 'b5', key: 'anode', name: 'Anode baking plant', included: false, notes: 'Not required for CBAM ingots (simple goods)', evidence: '' },
-            { id: 'b6', key: 'grid', name: 'Grid electricity import', included: true, notes: '', evidence: '' },
-        ],
+        }) : [],  // No default boundaries — they come from seed data
         processes: processes.map(p => ({
             id: p.id,
             name: p.name,
@@ -333,32 +322,67 @@ const reducer = (state, action) => {
                     b.id === action.payload.id ? { ...b, [action.payload.field]: action.payload.value } : b
                 )
             });
+        case 'ADD_BOUNDARY': {
+            const newBoundary = action.payload;
+            return markDirty({
+                ...state,
+                boundaries: [...state.boundaries, newBoundary]
+            });
+        }
+        case 'DELETE_BOUNDARY':
+            return markDirty({
+                ...state,
+                boundaries: state.boundaries.filter(b => b.id !== action.payload)
+            });
 
         // --- PROCESSES ---
         case 'ADD_PROCESS': {
             const nextNum = state.processes.length + 1;
-            const newProcess = action.payload || {
+            const proc = action.payload || {
                 id: `P${String(nextNum).padStart(2, '0')}`,
                 name: `Process ${nextNum}`,
                 description: '',
                 active: true,
             };
+            // Auto-create a matching process-type boundary
+            const autoBoundary = {
+                id: `b_${proc.id}`,
+                name: proc.name,
+                included: true,
+                notes: '',
+                processId: proc.id,
+                boundaryType: 'process',
+                scopeTag: 'direct',
+            };
             return markDirty({
                 ...state,
-                processes: [...state.processes, newProcess]
+                processes: [...state.processes, proc],
+                boundaries: [...state.boundaries, autoBoundary]
             });
         }
-        case 'UPDATE_PROCESS':
+        case 'UPDATE_PROCESS': {
+            const updatedProcesses = state.processes.map(p =>
+                p.id === action.payload.id ? { ...p, [action.payload.field]: action.payload.value } : p
+            );
+            // If process name changed, sync the linked boundary name too
+            let updatedBoundaries = state.boundaries;
+            if (action.payload.field === 'name') {
+                updatedBoundaries = state.boundaries.map(b =>
+                    b.processId === action.payload.id ? { ...b, name: action.payload.value } : b
+                );
+            }
             return markDirty({
                 ...state,
-                processes: state.processes.map(p =>
-                    p.id === action.payload.id ? { ...p, [action.payload.field]: action.payload.value } : p
-                )
+                processes: updatedProcesses,
+                boundaries: updatedBoundaries
             });
+        }
         case 'DELETE_PROCESS':
             return markDirty({
                 ...state,
-                processes: state.processes.filter(p => p.id !== action.payload)
+                processes: state.processes.filter(p => p.id !== action.payload),
+                // Auto-remove linked boundary
+                boundaries: state.boundaries.filter(b => b.processId !== action.payload)
             });
 
         // --- FUELS ---
@@ -510,9 +534,30 @@ const reducer = (state, action) => {
                     }
                 }
             }
+            // Keep productionOutput in sync when quantity changes
+            let newProdOutput = state.productionOutput || [];
+            if (action.payload.field === 'quantity') {
+                const qty = parseFloat(action.payload.value) || 0;
+                const existingIdx = newProdOutput.findIndex(po => po.productId === action.payload.id);
+                if (existingIdx >= 0) {
+                    newProdOutput = newProdOutput.map((po, i) =>
+                        i === existingIdx ? { ...po, quantity: qty } : po
+                    );
+                } else {
+                    newProdOutput = [...newProdOutput, {
+                        id: `po_${action.payload.id}`,
+                        period: `${state.meta.periodStart}_${state.meta.periodEnd}`,
+                        productId: action.payload.id,
+                        processId: null,
+                        quantity: qty,
+                        dataSource: 'user-input',
+                    }];
+                }
+            }
             return markDirty({
                 ...state,
                 products: updatedProducts,
+                productionOutput: newProdOutput,
                 cbamSettings: newCbamSettings,
             });
         }
@@ -608,6 +653,8 @@ function syncToDAL(action, state) {
                     periodStart: meta.periodStart,
                     periodEnd: meta.periodEnd,
                     isFinalProducer: meta.isFinalProducer,
+                    latitude: meta.latitude,
+                    longitude: meta.longitude,
                 });
                 break;
             }
@@ -621,25 +668,49 @@ function syncToDAL(action, state) {
                 });
                 break;
             }
-            case 'UPDATE_BOUNDARY':
-                DAL.saveBoundary({
-                    id: action.payload.id,
-                    installationId: instId,
-                    [action.payload.field]: action.payload.value,
-                    ...state.boundaries.find(b => b.id === action.payload.id),
-                });
+            case 'UPDATE_BOUNDARY': {
+                const bnd = state.boundaries.find(b => b.id === action.payload.id);
+                if (bnd) {
+                    DAL.saveBoundary({
+                        ...bnd,
+                        installationId: instId,
+                        [action.payload.field]: action.payload.value,
+                    });
+                }
                 break;
-            case 'ADD_PROCESS':
-                DAL.saveProcess({ ...action.payload, installationId: instId });
+            }
+            case 'ADD_BOUNDARY': {
+                DAL.saveBoundary({ ...action.payload, installationId: instId });
                 break;
+            }
+            case 'DELETE_BOUNDARY':
+                DAL.deleteBoundary(action.payload);
+                break;
+            case 'ADD_PROCESS': {
+                // The reducer creates both the process and its auto-boundary
+                const newProc = state.processes[state.processes.length - 1];
+                if (newProc) DAL.saveProcess({ ...newProc, installationId: instId });
+                // Also save the auto-created boundary
+                const newBnd = state.boundaries[state.boundaries.length - 1];
+                if (newBnd) DAL.saveBoundary({ ...newBnd, installationId: instId });
+                break;
+            }
             case 'UPDATE_PROCESS': {
                 const proc = state.processes.find(p => p.id === action.payload.id);
                 if (proc) DAL.saveProcess({ ...proc, installationId: instId, [action.payload.field]: action.payload.value });
+                // If name changed, also sync the linked boundary
+                if (action.payload.field === 'name') {
+                    const linkedBnd = state.boundaries.find(b => b.processId === action.payload.id);
+                    if (linkedBnd) DAL.saveBoundary({ ...linkedBnd, installationId: instId, name: action.payload.value });
+                }
                 break;
             }
-            case 'DELETE_PROCESS':
+            case 'DELETE_PROCESS': {
                 DAL.deleteProcess(action.payload);
+                // Delete linked boundary directly from SQLite (can't read state — reducer already removed it)
+                DAL.deleteBoundariesByProcessId(action.payload);
                 break;
+            }
             case 'ADD_FUEL':
                 DAL.saveFuelEntry({ ...action.payload, installationId: instId });
                 break;
@@ -708,7 +779,27 @@ function syncToDAL(action, state) {
                 break;
             case 'UPDATE_PRODUCT': {
                 const prod = state.products.find(p => p.id === action.payload.id);
-                if (prod) DAL.saveProduct({ ...prod, installationId: instId, [action.payload.field]: action.payload.value });
+                if (!prod) break;
+
+                if (action.payload.field === 'quantity') {
+                    // Quantity is stored in `production_output`, not `products`
+                    const period = `${state.meta.periodStart}_${state.meta.periodEnd}`;
+                    // Check if there's already a production_output row for this product
+                    const existingPO = (state.productionOutput || []).find(
+                        po => po.productId === action.payload.id
+                    );
+                    DAL.saveProductionOutput({
+                        stableId: existingPO?.id || `po_${action.payload.id}`,
+                        installationId: instId,
+                        period: period,
+                        productId: action.payload.id,
+                        processId: null,
+                        quantity: parseFloat(action.payload.value) || 0,
+                        dataSource: 'user-input',
+                    });
+                } else {
+                    DAL.saveProduct({ ...prod, installationId: instId, [action.payload.field]: action.payload.value });
+                }
                 break;
             }
             case 'DELETE_PRODUCT':
@@ -821,7 +912,10 @@ export const AppProvider = ({ children }) => {
                 name: action.payload.name || 'New Installation',
                 country: action.payload.country || 'KAZ',
                 periodStart: '2025-01',
-                periodEnd: '2025-12'
+                periodEnd: '2025-12',
+                isFinalProducer: true,
+                latitude: null,
+                longitude: null,
             });
             const loaded = enrichProductQuantities(buildStateFromDB(newId));
             rawDispatch({ type: 'LOAD_STATE', payload: loaded });
@@ -844,13 +938,16 @@ export const AppProvider = ({ children }) => {
 
     // Reset = drop and re-seed
     const reset = useCallback(async () => {
-        if (confirm("Reset entire demo? This will wipe all data.")) {
-            await resetDatabase();
-            seedDemoData();
-            const loaded = enrichProductQuantities(buildStateFromDB());
-            rawDispatch({ type: 'LOAD_STATE', payload: loaded });
-            await persistDatabase();
-        }
+        // setTimeout prevents React re-render from dismissing the native confirm dialog
+        setTimeout(async () => {
+            if (window.confirm("Reset entire demo? This will wipe all data.")) {
+                await resetDatabase();
+                seedDemoData();
+                const loaded = enrichProductQuantities(buildStateFromDB());
+                rawDispatch({ type: 'LOAD_STATE', payload: loaded });
+                await persistDatabase();
+            }
+        }, 0);
     }, []);
 
     // Loading screen

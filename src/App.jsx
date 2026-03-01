@@ -9,7 +9,6 @@ import Sidebar, { useSidebarWidth } from './components/Sidebar';
 
 // Views
 import BoundariesView from './views/BoundariesView';
-import ProcessesView from './views/ProcessesView';
 import ActivityView from './views/ActivityView';
 import AllocationView from './views/AllocationView';
 import ResultsView from './views/ResultsView';
@@ -62,7 +61,7 @@ function App() {
     switch (state.activeTab) {
       case 'dashboard': return <DashboardView />;
       case 'boundaries': return <BoundariesView />;
-      case 'processes': return <ProcessesView />;
+      case 'processes': return <BoundariesView />;  /* legacy: redirect to boundaries */
       case 'activity': return <ActivityView />;
       case 'allocation': return <AllocationView />;
       case 'results': return <ResultsView />;

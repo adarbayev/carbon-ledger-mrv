@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import {
-    Home, LayoutDashboard, Factory, Zap, PieChart, BarChart3,
+    Home, LayoutDashboard, Building2, Zap, PieChart, BarChart3,
     ClipboardList, ShieldCheck, FileOutput, FileText, Settings,
     ChevronLeft, ChevronRight, ChevronDown
 } from 'lucide-react';
@@ -24,8 +24,7 @@ export default function Sidebar() {
 
     const navItems = [
         { id: 'dashboard', label: t('ui.sidebar.dashboard'), icon: Home },
-        { id: 'boundaries', label: t('ui.sidebar.boundaries'), icon: LayoutDashboard },
-        { id: 'processes', label: t('ui.sidebar.processes'), icon: Factory },
+        { id: 'boundaries', label: t('ui.sidebar.boundaries'), icon: Building2 },
         { id: 'activity', label: t('ui.sidebar.activity'), icon: Zap },
         { id: 'allocation', label: t('ui.sidebar.allocation'), icon: PieChart },
         { id: 'results', label: t('ui.sidebar.results'), icon: BarChart3 },
@@ -159,14 +158,17 @@ export default function Sidebar() {
                             <div className="px-2 py-1.5 border-t border-slate-700/50">
                                 <button
                                     onClick={() => {
-                                        const name = prompt(t('ui.sidebar.newInstallationName') || 'New Installation Name:');
-                                        if (name) {
-                                            dispatch({
-                                                type: 'ADD_INSTALLATION',
-                                                payload: { name: name, country: 'KAZ' }
-                                            });
-                                        }
                                         setShowInstallations(false);
+                                        // setTimeout prevents React re-render from dismissing native prompt
+                                        setTimeout(() => {
+                                            const name = window.prompt(t('ui.sidebar.newInstallationName') || 'New Installation Name:');
+                                            if (name) {
+                                                dispatch({
+                                                    type: 'ADD_INSTALLATION',
+                                                    payload: { name: name, country: 'KAZ' }
+                                                });
+                                            }
+                                        }, 0);
                                     }}
                                     className="w-full text-left px-2 py-1.5 text-xs text-blue-400 hover:bg-slate-700/50 rounded-md transition-colors font-medium"
                                 >

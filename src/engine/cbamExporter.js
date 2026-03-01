@@ -18,6 +18,7 @@ export function buildCBAMTemplate(state) {
         electricity: state.activity.electricity,
         processEvents: state.processEvents || [],
         emissionBlocks: state.emissionBlocks || [],
+        boundaries: state.boundaries || [],
     });
 
     const pcf = calculatePCF(emissions, state.products, state.allocationSettings);

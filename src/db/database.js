@@ -92,6 +92,8 @@ async function _doInit() {
         dbInstance = new SQL.Database(new Uint8Array(savedData));
         // Always run schema to ensure any new tables/indexes are created (migrations)
         dbInstance.run(schemaSQL);
+        // Run column migrations for existing databases
+        _runMigrations(dbInstance);
         console.log('[DB] Restored from IndexedDB and ensured schema');
     } else {
         // Fresh database — run schema
@@ -101,6 +103,23 @@ async function _doInit() {
     }
 
     return dbInstance;
+}
+
+/**
+ * Safely add columns that may not exist in older databases.
+ * Each ALTER TABLE is wrapped in try-catch because SQLite errors if column already exists.
+ */
+function _runMigrations(db) {
+    const migrations = [
+        'ALTER TABLE boundaries ADD COLUMN process_id TEXT',
+        'ALTER TABLE boundaries ADD COLUMN boundary_type TEXT DEFAULT \'process\'',
+        'ALTER TABLE boundaries ADD COLUMN scope_tag TEXT DEFAULT \'direct\'',
+        'ALTER TABLE installations ADD COLUMN latitude REAL',
+        'ALTER TABLE installations ADD COLUMN longitude REAL',
+    ];
+    for (const sql of migrations) {
+        try { db.run(sql); } catch { /* column already exists */ }
+    }
 }
 
 /**

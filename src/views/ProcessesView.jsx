@@ -56,7 +56,7 @@ export default function ProcessesView() {
                                     </td>
                                     <td>
                                         <button className="btn-icon-danger"
-                                            onClick={() => { if (confirm(t('ui.processes.deleteConfirm'))) dispatch({ type: 'DELETE_PROCESS', payload: p.id }); }}>
+                                            onClick={() => setTimeout(() => { if (window.confirm(t('ui.processes.deleteConfirm'))) dispatch({ type: 'DELETE_PROCESS', payload: p.id }); }, 0)}>
                                             <Trash2 size={14} />
                                         </button>
                                     </td>

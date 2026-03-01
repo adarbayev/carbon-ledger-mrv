@@ -103,14 +103,14 @@ export function saveInstallation(data) {
     const existing = getInstallation(data.id || 'default');
     if (existing) {
         execute(
-            'UPDATE installations SET name = ?, country = ?, period_start = ?, period_end = ?, is_final_producer = ? WHERE id = ?',
-            [data.name, data.country, data.periodStart, data.periodEnd, (data.isFinalProducer ? 1 : 0), data.id || 'default']
+            'UPDATE installations SET name = ?, country = ?, period_start = ?, period_end = ?, is_final_producer = ?, latitude = ?, longitude = ? WHERE id = ?',
+            [data.name, data.country, data.periodStart, data.periodEnd, (data.isFinalProducer ? 1 : 0), data.latitude, data.longitude, data.id || 'default']
         );
         logAudit({ entityType: 'installation', entityId: data.id || 'default', action: 'UPDATE' });
     } else {
         execute(
-            'INSERT INTO installations (id, name, country, period_start, period_end, is_final_producer) VALUES (?, ?, ?, ?, ?, ?)',
-            [data.id || 'default', data.name, data.country, data.periodStart, data.periodEnd, (data.isFinalProducer ? 1 : 0)]
+            'INSERT INTO installations (id, name, country, period_start, period_end, is_final_producer, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [data.id || 'default', data.name, data.country, data.periodStart, data.periodEnd, (data.isFinalProducer ? 1 : 0), data.latitude, data.longitude]
         );
         logAudit({ entityType: 'installation', entityId: data.id || 'default', action: 'CREATE' });
     }
@@ -126,15 +126,15 @@ export function saveBoundary(data) {
     const existing = query('SELECT * FROM boundaries WHERE id = ?', [data.id]);
     if (existing.length > 0) {
         execute(
-            'UPDATE boundaries SET name = ?, included = ?, notes = ?, evidence = ? WHERE id = ?',
-            [data.name, data.included ? 1 : 0, data.notes, data.evidence, data.id]
+            'UPDATE boundaries SET name = ?, included = ?, process_id = ?, boundary_type = ?, scope_tag = ?, notes = ?, evidence = ? WHERE id = ?',
+            [data.name, data.included ? 1 : 0, data.processId || data.process_id || null, data.boundaryType || data.boundary_type || 'process', data.scopeTag || data.scope_tag || 'direct', data.notes, data.evidence, data.id]
         );
         logAudit({ entityType: 'boundary', entityId: data.id, action: 'UPDATE' });
     } else {
         const id = data.id || generateId('b');
         execute(
-            'INSERT INTO boundaries (id, installation_id, name, included, notes, evidence) VALUES (?, ?, ?, ?, ?, ?)',
-            [id, data.installationId || 'default', data.name, data.included ? 1 : 0, data.notes || '', data.evidence || '']
+            'INSERT INTO boundaries (id, installation_id, name, included, process_id, boundary_type, scope_tag, notes, evidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [id, data.installationId || 'default', data.name, data.included ? 1 : 0, data.processId || data.process_id || null, data.boundaryType || data.boundary_type || 'process', data.scopeTag || data.scope_tag || 'direct', data.notes || '', data.evidence || '']
         );
         logAudit({ entityType: 'boundary', entityId: id, action: 'CREATE' });
         return id;
@@ -145,6 +145,11 @@ export function saveBoundary(data) {
 export function deleteBoundary(id) {
     execute('DELETE FROM boundaries WHERE id = ?', [id]);
     logAudit({ entityType: 'boundary', entityId: id, action: 'DELETE' });
+}
+
+export function deleteBoundariesByProcessId(processId) {
+    execute('DELETE FROM boundaries WHERE process_id = ?', [processId]);
+    logAudit({ entityType: 'boundary', entityId: processId, action: 'DELETE_BY_PROCESS' });
 }
 
 // ─── Processes ───────────────────────────────────────────────

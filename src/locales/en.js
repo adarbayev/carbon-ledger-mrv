@@ -2,7 +2,7 @@ export const en = {
     ui: {
         sidebar: {
             dashboard: 'Dashboard',
-            boundaries: 'Boundaries',
+            boundaries: 'Installation',
             processes: 'Processes',
             activity: 'Activity',
             allocation: 'Allocation',
@@ -50,8 +50,25 @@ export const en = {
             country: 'Country',
             periodStart: 'Reporting Start',
             periodEnd: 'Reporting End',
+            latitude: 'Latitude',
+            longitude: 'Longitude',
+            enterCoordinates: 'Enter Latitude and Longitude to view the installation on the map.',
             operationalBoundaries: 'Operational Boundaries',
             description: 'Select the activities included in this assessment.',
+            sections: {
+                productionProcesses: 'Production Processes',
+                sharedUtilities: 'Shared Utilities',
+                external: 'External / Out-of-Scope',
+            },
+            scope: 'Scope',
+            scopeTags: {
+                direct: 'Direct (Scope 1)',
+                indirect: 'Indirect (Scope 2)',
+                excluded: 'Excluded',
+            },
+            addItem: 'Add',
+            noItemsAdd: 'No items. Click "Add" to define one.',
+            autoPopulated: 'Auto-populated from processes above.',
             table: {
                 incl: 'Incl',
                 item: 'Boundary Item',

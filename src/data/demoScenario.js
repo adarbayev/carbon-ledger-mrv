@@ -13,13 +13,14 @@ export const INSTALLATION_DATA = {
 };
 
 export const BOUNDARIES_DATA = [
-    ['b1', 'Sinter Plant', 1, 'Ore sintering and preparation'],
-    ['b2', 'Blast Furnace (BF)', 1, 'Ironmaking — direct and indirect emissions'],
-    ['b3', 'Basic Oxygen Furnace (BOF)', 1, 'Steelmaking and secondary metallurgy'],
-    ['b4', 'Hot Rolling Mill', 1, 'Continuous casting and final HR product'],
-    ['b5', 'Coke Oven Plant', 0, 'Not included in site boundary (purchased coke)'],
-    ['b6', 'Grid electricity import', 1, 'Purchased electricity from national grid'],
-    ['b7', 'On-site logistics', 1, 'Internal rail and transport'],
+    // [id, name, included, notes, processId, boundaryType, scopeTag]
+    ['b1', 'Sinter Plant', 1, 'Ore sintering and preparation', 'P01', 'process', 'direct'],
+    ['b2', 'Blast Furnace (BF)', 1, 'Ironmaking — direct and indirect emissions', 'P02', 'process', 'direct'],
+    ['b3', 'Basic Oxygen Furnace (BOF)', 1, 'Steelmaking and secondary metallurgy', 'P03', 'process', 'direct'],
+    ['b4', 'Hot Rolling Mill', 1, 'Continuous casting and final HR product', 'P04', 'process', 'direct'],
+    ['b5', 'Coke Oven Plant', 0, 'Not included in site boundary (purchased coke)', null, 'external', 'excluded'],
+    ['b6', 'Grid electricity import', 1, 'Purchased electricity from national grid', null, 'utility', 'indirect'],
+    ['b7', 'On-site logistics', 1, 'Internal rail and transport', null, 'utility', 'direct'],
 ];
 
 export const PROCESSES_DATA = [

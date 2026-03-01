@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import { CBAM_CN_CODES, getCnCodeInfo, getSectors } from '../data/referenceData';
 import { calculateTotalEmissions } from '../engine/emissionEngine';
+import * as DAL from '../db/dal';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { ChevronDown, ChevronRight, Package, Plus, Trash2 } from 'lucide-react';
 import { fmtInt, fmtPct } from '../utils/formatUtils';
@@ -19,6 +20,7 @@ export default function AllocationView() {
         electricity: state.activity.electricity,
         processEvents: state.processEvents || [],
         emissionBlocks: state.emissionBlocks || [],
+        boundaries: state.boundaries || [],
     });
     const totalDirect = Math.round(emissionResult.summary.directCO2e);
     const totalIndirect = Math.round(emissionResult.summary.indirectCO2e);
@@ -40,6 +42,67 @@ export default function AllocationView() {
             c.name.toLowerCase().includes(search) ||
             c.sector.toLowerCase().includes(search)
         );
+    };
+
+    /**
+     * Compute SEE (tCO₂e/t) for a product from another installation.
+     * Loads that installation's activity data, runs calculateTotalEmissions,
+     * and divides total CO₂e by the product's output quantity.
+     */
+    const computeLinkedSEE = (installationId, productId) => {
+        try {
+            const fuels = DAL.getFuelEntries(installationId);
+            const electricity = DAL.getElectricityEntries(installationId);
+            const processEvents = DAL.getProcessEvents(installationId);
+            const emissionBlocks = DAL.getEmissionBlocks(installationId);
+            const boundaries = DAL.getBoundaries(installationId);
+
+            // Map boundaries to the shape the engine expects
+            const mappedBoundaries = boundaries.map(b => ({
+                id: b.id,
+                included: !!b.included,
+                processId: b.process_id,
+                boundaryType: b.boundary_type,
+                scopeTag: b.scope_tag,
+            }));
+
+            // Map fuel/elec to the shape the engine expects
+            const mappedFuels = fuels.map(f => ({
+                ...f,
+                stableId: f.stable_id,
+                processId: f.process_id,
+                fuelTypeId: f.fuel_type_id,
+            }));
+            const mappedElec = electricity.map(e => ({
+                ...e,
+                stableId: e.stable_id,
+                processId: e.process_id,
+                gridCountry: e.grid_country,
+            }));
+
+            const result = calculateTotalEmissions({
+                fuels: mappedFuels,
+                electricity: mappedElec,
+                processEvents,
+                emissionBlocks,
+                boundaries: mappedBoundaries,
+            });
+
+            const totalCO2e = result.summary.totalCO2e;
+
+            // Get total output for that product
+            const outputs = DAL.getProductionOutput(installationId);
+            const productOutputs = outputs.filter(o => (o.product_id || o.productId) === productId);
+            const totalQty = productOutputs.reduce((sum, o) => sum + (o.quantity || 0), 0);
+
+            if (totalQty > 0) {
+                return parseFloat((totalCO2e / totalQty).toFixed(4));
+            }
+            return 0;
+        } catch (err) {
+            console.error('[AllocationView] Error computing linked SEE:', err);
+            return 0;
+        }
     };
 
     return (
@@ -227,24 +290,28 @@ export default function AllocationView() {
                                                                                         <span className="text-blue-600 font-medium whitespace-nowrap px-1">↳ Link Product:</span>
                                                                                         <select
                                                                                             value={`${pc.sourceInstallationId || ''}::${pc.sourceProductId || ''}`}
-                                                                                            className="input-cell w-full max-w-md bg-white border-blue-200"
+                                                                                            className="input-cell w-full bg-white border-blue-200"
+                                                                                            style={{ minWidth: 320 }}
                                                                                             onChange={(e) => {
                                                                                                 const [instId, prodId] = e.target.value.split('::');
                                                                                                 dispatch({ type: 'UPDATE_PRECURSOR', payload: { productId: p.id, precursorId: pc.id, field: 'sourceInstallationId', value: instId } });
                                                                                                 dispatch({ type: 'UPDATE_PRECURSOR', payload: { productId: p.id, precursorId: pc.id, field: 'sourceProductId', value: prodId } });
 
-                                                                                                // Auto-fill CN Code and Name based on selection
+                                                                                                // Auto-fill CN Code, Name, and SEE based on selection
                                                                                                 const linkedProd = (state.crossSiteProducts || []).find(x => x.id === prodId);
                                                                                                 if (linkedProd) {
                                                                                                     dispatch({ type: 'UPDATE_PRECURSOR', payload: { productId: p.id, precursorId: pc.id, field: 'name', value: linkedProd.name } });
                                                                                                     dispatch({ type: 'UPDATE_PRECURSOR', payload: { productId: p.id, precursorId: pc.id, field: 'cnCode', value: linkedProd.cnCode } });
+                                                                                                    // Compute and auto-fill SEE from linked installation
+                                                                                                    const see = computeLinkedSEE(instId, prodId);
+                                                                                                    dispatch({ type: 'UPDATE_PRECURSOR', payload: { productId: p.id, precursorId: pc.id, field: 'see', value: see } });
                                                                                                 }
                                                                                             }}
                                                                                         >
                                                                                             <option value="::">{t('ui.precursors.selectProduct') || 'Select cross-site product...'}</option>
                                                                                             {(state.crossSiteProducts || []).map(cp => (
                                                                                                 <option key={`${cp.installationId}::${cp.id}`} value={`${cp.installationId}::${cp.id}`}>
-                                                                                                    [{cp.installationName}] {cp.name} ({cp.cnCode || 'No CN'}) {cp.isResidue ? '(Residue)' : ''}
+                                                                                                    {cp.installationName} → {cp.name} {cp.cnCode ? `(${cp.cnCode})` : ''} {cp.isResidue ? '[Residue]' : ''}
                                                                                                 </option>
                                                                                             ))}
                                                                                         </select>

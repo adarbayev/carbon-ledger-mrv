@@ -21,6 +21,7 @@ export default function ResultsView() {
         electricity: state.activity.electricity,
         processEvents: state.processEvents || [],
         emissionBlocks: state.emissionBlocks || [],
+        boundaries: state.boundaries || [],
     });
     const totalDirect = emissionResult.summary.directCO2e;
     const totalIndirect = emissionResult.summary.indirectCO2e;

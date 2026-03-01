@@ -2,7 +2,7 @@ export const ru = {
     ui: {
         sidebar: {
             dashboard: 'Дашборд',
-            boundaries: 'Границы',
+            boundaries: 'Установка',
             processes: 'Процессы',
             activity: 'Деятельность',
             allocation: 'Распределение',
@@ -47,8 +47,25 @@ export const ru = {
             country: 'Страна',
             periodStart: 'Начало отчета',
             periodEnd: 'Конец отчета',
+            latitude: 'Широта (Latitude)',
+            longitude: 'Долгота (Longitude)',
+            enterCoordinates: 'Введите широту и долготу, чтобы просмотреть установку на карте.',
             operationalBoundaries: 'Операционные границы',
             description: 'Выберите виды деятельности, включенные в оценку.',
+            sections: {
+                productionProcesses: 'Производственные процессы',
+                sharedUtilities: 'Общие коммуникации',
+                external: 'Внешние / Вне охвата',
+            },
+            scope: 'Охват',
+            scopeTags: {
+                direct: 'Прямые (Охват 1)',
+                indirect: 'Косвенные (Охват 2)',
+                excluded: 'Исключено',
+            },
+            addItem: 'Добавить',
+            noItemsAdd: 'Нет элементов. Нажмите «Добавить».',
+            autoPopulated: 'Автоматически заполняется из процессов выше.',
             table: {
                 incl: 'Вкл.',
                 item: 'Элемент границы',
@@ -471,7 +488,7 @@ export const ru = {
         // --- Sidebar & General Multi-Site ---
         sidebar: {
             dashboard: "Панель управления",
-            boundaries: "Границы",
+            boundaries: "Установка",
             processes: "Процессы",
             // ...
             activity: "Активность",
@@ -508,6 +525,8 @@ export const ru = {
         },
 
         // --- Section Workflows ---
+    },
+    ref: {
         country: {
             KAZ: 'Казахстан',
             CHN: 'Китай',
