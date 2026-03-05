@@ -27,6 +27,7 @@ function isCnMatch(fullCode, dictCode) {
     const dict = (dictCode || '').replace(/\s+/g, '');
     if (full === dict) return true;
     if (full.length > dict.length && full.startsWith(dict)) return true;
+    if (dict.length > full.length && dict.startsWith(full)) return true;
     return false;
 }
 

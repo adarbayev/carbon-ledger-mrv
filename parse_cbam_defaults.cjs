@@ -161,7 +161,15 @@ export const CN_CODE_SCOPE = ${JSON.stringify(scopeLookup)};
 export function getDefaultValue(country, cnCode) {
     const entries = CBAM_DEFAULT_VALUES[country];
     if (!entries) return null;
-    return entries.find(e => e.cn === cnCode) || null;
+    // Try exact match first
+    const exact = entries.find(e => e.cn === cnCode);
+    if (exact) return exact;
+    // Prefix match: handles heading-level codes (e.g. '7211') matching sub-headings ('7211 13 00')
+    const raw = (cnCode || '').replace(/\\s+/g, '');
+    return entries.find(e => {
+        const entryRaw = (e.cn || '').replace(/\\s+/g, '');
+        return entryRaw.startsWith(raw) || raw.startsWith(entryRaw);
+    }) || null;
 }
 
 /**

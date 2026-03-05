@@ -199,7 +199,7 @@ export default function DashboardView() {
                     {cbamExposure ? (
                         <>
                             <div className="text-2xl font-bold text-orange-800">
-                                €{fmtMillions(cbamExposure.netCost / 1e6)}M
+                                {fmtMillions(cbamExposure.netCost)}
                             </div>
                             <div className="text-xs text-orange-400">
                                 {fmtInt(cbamExposure.payableEmissions)} {t('ui.dashboard.cbam.payable')} €{cbamExposure.certPrice}/t
