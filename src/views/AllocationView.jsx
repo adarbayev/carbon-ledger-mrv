@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import { CBAM_CN_CODES, getCnCodeInfo, getSectors } from '../data/referenceData';
-import { calculateTotalEmissions } from '../engine/emissionEngine';
+import { calculateTotalEmissions, calculatePCF } from '../engine/emissionEngine';
 import * as DAL from '../db/dal';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { ChevronDown, ChevronRight, Package, Plus, Trash2 } from 'lucide-react';
@@ -51,54 +51,54 @@ export default function AllocationView() {
      */
     const computeLinkedSEE = (installationId, productId) => {
         try {
+            // Load all data for the linked installation
             const fuels = DAL.getFuelEntries(installationId);
             const electricity = DAL.getElectricityEntries(installationId);
             const processEvents = DAL.getProcessEvents(installationId);
             const emissionBlocks = DAL.getEmissionBlocks(installationId);
             const boundaries = DAL.getBoundaries(installationId);
+            const products = DAL.getProducts(installationId);
+            const productionOutput = DAL.getProductionOutput(installationId);
 
-            // Map boundaries to the shape the engine expects
+            // Map to engine-expected shapes (same as buildStateFromDB)
             const mappedBoundaries = boundaries.map(b => ({
-                id: b.id,
-                included: !!b.included,
-                processId: b.process_id,
-                boundaryType: b.boundary_type,
+                id: b.id, included: !!b.included,
+                processId: b.process_id, boundaryType: b.boundary_type,
                 scopeTag: b.scope_tag,
             }));
-
-            // Map fuel/elec to the shape the engine expects
             const mappedFuels = fuels.map(f => ({
-                ...f,
-                stableId: f.stable_id,
-                processId: f.process_id,
+                ...f, stableId: f.stable_id, processId: f.process_id,
                 fuelTypeId: f.fuel_type_id,
             }));
             const mappedElec = electricity.map(e => ({
-                ...e,
-                stableId: e.stable_id,
-                processId: e.process_id,
+                ...e, stableId: e.stable_id, processId: e.process_id,
                 gridCountry: e.grid_country,
             }));
 
+            // Calculate total emissions
             const result = calculateTotalEmissions({
-                fuels: mappedFuels,
-                electricity: mappedElec,
-                processEvents,
-                emissionBlocks,
+                fuels: mappedFuels, electricity: mappedElec,
+                processEvents, emissionBlocks,
                 boundaries: mappedBoundaries,
             });
 
-            const totalCO2e = result.summary.totalCO2e;
+            // Enrich products with quantities from production_output
+            const outputByProduct = {};
+            productionOutput.forEach(po => {
+                outputByProduct[po.product_id] =
+                    (outputByProduct[po.product_id] || 0) + (po.quantity || 0);
+            });
+            const enrichedProducts = products.map(p => ({
+                id: p.id, name: p.name, isResidue: !!p.is_residue,
+                cnCode: p.cn_code,
+                quantity: outputByProduct[p.id] || 0,
+            }));
 
-            // Get total output for that product
-            const outputs = DAL.getProductionOutput(installationId);
-            const productOutputs = outputs.filter(o => (o.product_id || o.productId) === productId);
-            const totalQty = productOutputs.reduce((sum, o) => sum + (o.quantity || 0), 0);
+            // Use calculatePCF for correct mass-based allocation
+            const pcfResults = calculatePCF(result, enrichedProducts);
+            const match = pcfResults.find(r => r.productId === productId);
 
-            if (totalQty > 0) {
-                return parseFloat((totalCO2e / totalQty).toFixed(4));
-            }
-            return 0;
+            return match ? parseFloat(match.pcf.toFixed(4)) : 0;
         } catch (err) {
             console.error('[AllocationView] Error computing linked SEE:', err);
             return 0;
