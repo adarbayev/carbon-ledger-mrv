@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carbon Ledger MRV - Project Handoff</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --surface: #ffffff;
+            --background: #f8fafc;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --accent: #f1f5f9;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-main);
+            background-color: var(--background);
+            margin: 0;
+            padding: 2rem 4rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--surface);
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        h2 {
+            color: var(--text-main);
+            margin-top: 2.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            color: var(--text-main);
+            margin-top: 1.5rem;
+        }
+
+        .intro {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+        }
+
+        .hypothesis-box {
+            background-color: var(--accent);
+            border-left: 4px solid var(--primary);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+            font-style: italic;
+            color: var(--text-main);
+        }
+
+        .mermaid {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin: 2rem 0;
+            overflow-x: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .section-desc {
+            margin-bottom: 1rem;
+        }
+
+        ul,
+        ol {
+            padding-left: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+        }
+
+        th,
+        td {
+            border: 1px solid var(--border);
+            padding: 0.75rem;
+            text-align: left;
+        }
+
+        th {
+            background-color: var(--background);
+            font-weight: 600;
+        }
+
+        code {
+            background-color: var(--accent);
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+
+        pre {
+            background-color: var(--text-main);
+            color: var(--surface);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.9em;
+        }
+    </style>
+    <!-- Include Mermaid.js -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+            er: {
+                useMaxWidth: false
+            }
+        });
+    </script>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Carbon Ledger MRV — Project Handoff</h1>
+        <p class="intro">This document provides a comprehensive overview of the Carbon Ledger MRV project, covering the
+            core hypotheses, technical architecture, calculation methodology, and visualized state meant for seamless
+            onboarding.</p>
+
+        <h2>1. Context & MVP Goals</h2>
+        <p class="section-desc">To understand what this product is attempting to achieve, we must understand the core
+            compliance problem it solves for the EU's Carbon Border Adjustment Mechanism (CBAM).</p>
+
+        <h3>The Problem</h3>
+        <p>When companies import CBAM-covered goods (steel, cement, aluminium, fertilisers, hydrogen, electricity) into
+            the EU, they must:</p>
+        <ol>
+            <li><strong>Report</strong> the greenhouse gas emissions <em>embedded in each product</em> (the Product
+                Carbon Footprint, or PCF) to EU authorities.</li>
+            <li><strong>Purchase CBAM certificates</strong> to cover those emissions, with the cost linked to the EU ETS
+                carbon price.</li>
+        </ol>
+        <p>This is not a corporate carbon footprint. It is a <em>product-level</em> footprint tied to a specific CN code
+            — governed by strict calculation rules set out in the CBAM Regulation and its implementing acts.</p>
+
+        <h3>The Core Hypothesis</h3>
+        <div class="hypothesis-box">
+            Exporters and importers have a critical need to digitize the end-to-end process of Product Carbon Footprint
+            (PCF) calculation and CBAM reporting. A successful solution must provide a traceable, auditable process that
+            simplifies these complex calculations while ensuring compliance with EU regulations.
+        </div>
+        <p>The current local-first, client-side SQLite architecture is simply a technical vehicle to rapidly build and
+            validate this core value proposition with a privacy-first user experience.</p>
+
+        <h3>What the MVP Validates</h3>
+        <ul>
+            <li><strong>Can we fully digitalise the CBAM calculation pipeline for real-world scenarios?</strong> We are
+                validating if the tool can handle the complex reporting needs of specific industries (currently tested
+                with Primary Aluminium and Integrated Steel BF-BOF route).</li>
+            <li><strong>Does the tool provide sufficient traceability and auditability?</strong> We are validating if
+                the versioned data records, calculation lineage, and QA dashboards give users (and eventually auditors)
+                the confidence required for compliance reporting.</li>
+            <li><strong>Can a digital tool simplify the use of EU default values?</strong> We are validating if
+                embedding 10,932 official EU default emission values (with automatic CN code fallback matching) reduces
+                the friction of CBAM cost projections.</li>
+        </ul>
+
+        <h2>2. Technical Architecture & Database State</h2>
+
+        <h3>State Management</h3>
+        <p>The state management follows a <strong>dual-write</strong> pattern:</p>
+        <ol>
+            <li>The React reducer updates in-memory state for immediate UI reactivity.</li>
+            <li>A <code>syncToDAL()</code> middleware synchronously writes the same mutation to SQLite.</li>
+            <li>On app load, <code>buildStateFromDB()</code> reconstructs the full React state from SQL, ensuring the DB
+                is the source of truth.</li>
+        </ol>
+
+        <div class="mermaid">
+            flowchart TD
+            UI[React Views] -->|dispatch action| R[Reducer in AppContext]
+            R -->|new state| UI
+            R -->|syncToDAL| DAL[Data Access Layer]
+            DAL -->|SQL queries| DB[(sql.js / SQLite in WebAssembly)]
+            DB -->|persisted to| IDB[(IndexedDB)]
+
+            INIT[App Init] -->|initDatabase + seedDemoData| DB
+            INIT -->|buildStateFromDB| R
+        </div>
+
+        <h3>Database Schema Overview (Entity-Relationship)</h3>
+        <p class="section-desc">The relational structure of the MRV SQLite database, highlighting the core tables:
+            Configurations, Processes, Versioned Activity Data, and Reporting outputs.</p>
+
+        <div class="mermaid">
+            erDiagram
+            INSTALLATIONS ||--o{ BOUNDARIES : defines
+            INSTALLATIONS ||--o{ PROCESSES : contains
+            INSTALLATIONS ||--o{ SECTION_WORKFLOWS : tracks_status
+            INSTALLATIONS ||--o{ PRODUCTS : produces
+
+            PROCESSES ||--o{ FUEL_ENTRIES : "versioned activity"
+            PROCESSES ||--o{ ELECTRICITY_ENTRIES : "versioned activity"
+            PROCESSES ||--o{ PROCESS_EVENTS : "legacy versioned"
+            PROCESSES ||--o{ EMISSION_BLOCKS : "formula-based"
+            PROCESSES ||--o{ PRODUCTION_OUTPUT : "versioned output"
+
+            PRODUCTS ||--o{ PRODUCTION_OUTPUT : allocated_in
+            PRODUCTS ||--o{ PRECURSORS : "embedded inputs"
+
+            PRECURSORS }o--|| INSTALLATIONS : "source_installation_id (cross-site)"
+
+            INSTALLATIONS ||--|| CBAM_SETTINGS : configures
+            INSTALLATIONS ||--|| ALLOCATION_SETTINGS : configures
+
+            INSTALLATIONS {
+            string id PK
+            string name
+            string country
+            string workflow_status
+            }
+            BOUNDARIES {
+            string id PK
+            string name
+            string boundary_type
+            }
+            PROCESSES {
+            string id PK
+            string name
+            string category
+            }
+            PRODUCTS {
+            string id PK
+            string name
+            string cn_code
+            boolean is_residue
+            }
+            FUEL_ENTRIES {
+            string version_id PK
+            string stable_id
+            real quantity
+            }
+            ELECTRICITY_ENTRIES {
+            string version_id PK
+            string stable_id
+            real mwh
+            }
+            PROCESS_EVENTS {
+            string version_id PK
+            string stable_id
+            real value
+            }
+            PRODUCTION_OUTPUT {
+            string version_id PK
+            string stable_id
+            real quantity
+            }
+            PRECURSORS {
+            string id PK
+            real mass
+            real see
+            string source_type
+            }
+        </div>
+
+        <p><strong>Key Schema Design Decisions:</strong></p>
+        <ul>
+            <li><strong>Versioned records:</strong> <code>fuel_entries</code>, <code>electricity_entries</code>,
+                <code>process_events</code>, and <code>production_output</code> all use a <code>stable_id</code> +
+                <code>version_number</code> pattern with <code>supersedes_version_id</code> for full traceability.</li>
+            <li><strong>Cross-installation precursors:</strong> The <code>precursors</code> table has
+                <code>source_installation_id</code> and <code>source_product_id</code> fields, enabling linked SEE
+                values across installations.</li>
+            <li><strong>Verification workflow:</strong> <code>section_workflows</code> tracks per-section status (DRAFT
+                → SUBMITTED → APPROVED → LOCKED) independently, while the installation-level
+                <code>workflow_status</code> governs the overall lifecycle.</li>
+        </ul>
+
+        <h2>3. Calculation Methodology & Reporting Workflow</h2>
+        <p class="section-desc">Represents the sequential flow from initial installation setup and data entry to CBAM
+            calculation and audit logging. Based on the <strong>ISO 14067</strong> principles for Mass-Based Allocation
+            and EU Regulations.</p>
+
+        <div class="mermaid">
+            flowchart TB
+            subgraph "Step 1: Activity Data"
+            F[Fuel Combustion\nQuantity × NCV → Energy TJ]
+            E[Electricity\nMWh × Grid EF]
+            P[Process Emissions\nFormula-based blocks]
+            end
+
+            subgraph "Step 2: Emission Engine"
+            F -->|"EF_CO₂, EF_CH₄, EF_N₂O\n(kg/TJ from IPCC 2006)"| GAS[Per-Gas Masses\ntCO₂, tCH₄, tN₂O]
+            GAS -->|"× GWP factors\n(EU Reg 2025/2547)"| CO2E_D[Direct CO₂e]
+            E --> CO2E_I[Indirect CO₂e]
+            P -->|"safe formula eval\n(IPCC Vol.3 formulas)"| CO2E_D
+            end
+
+            subgraph "Step 3: PCF Allocation (ISO 14067)"
+            CO2E_D --> ALLOC[Mass-Based Allocation]
+            CO2E_I --> ALLOC
+            PROD[Product Output Quantities] --> ALLOC
+            PREC[Precursor SEE] --> ALLOC
+            ALLOC --> SEE["SEE\n(Specific Embedded Emissions)\ntCO₂e per tonne of product"]
+            end
+
+            subgraph "Step 4: CBAM Projection"
+            SEE --> PROJ[Year-by-Year 2026-2034]
+            DEF["EU Default Values\n(Reg 2025/2621)"] --> PROJ
+            PHASE["Phase-in Schedule\n(free allocation → 100% payable)"] --> PROJ
+            CERT["EUA Certificate Price\n(LOW/MID/HIGH scenarios)"] --> PROJ
+            KZ["KZ ETS Deduction\n(carbon price already paid)"] --> PROJ
+            PROJ --> COST["Net CBAM Cost (€)\nper year, per tonne"]
+            end
+        </div>
+
+        <h3>Key Mathematical Formulas Used</h3>
+        <p><strong>Specific Embedded Emissions (SEE):</strong></p>
+        <pre>Product_Share   = Product_Quantity / Total_Non-Residue_Output
+Allocated_CO₂e  = Total_Installation_CO₂e × Product_Share
+SEE             = Allocated_CO₂e / Product_Quantity    (tCO₂e per t product)
+</pre>
+        <p><strong>CBAM Net Cost projection (per year):</strong></p>
+        <pre>Embedded_CO₂    = Import_Qty(t) × SEE(tCO₂e/t)
+Payable_CO₂     = Embedded_CO₂ × Phase_In_Share(year)
+Gross_Cost(€)   = Payable_CO₂ × EUA_Cert_Price(€/tCO₂)
+KZ_Deduction(€) = MIN(Cert_Price, KZ_ETS_Price) × Embedded_CO₂ × KZ_Quota_Share
+Net_Cost(€)     = MAX(0, Gross_Cost − KZ_Deduction)
+</pre>
+
+        <h2>4. Future Evolution & Roadmap</h2>
+
+        <h3>If the Hypothesis is Validated ✅</h3>
+        <p>The local-first approach works → scale the product:</p>
+        <ol>
+            <li><strong>Multi-tenant backend migration:</strong> Move from client-side SQLite to a hosted
+                PostgreSQL/Supabase backend with user authentication and role-based access.</li>
+            <li><strong>Official export format conformity:</strong> Implement XML export matching the EU's actual CBAM
+                communication template schema and XLSX export using the official EC template structure.</li>
+            <li><strong>Expand sector coverage:</strong> Add process templates for remaining CBAM sectors (electricity
+                generation, glass, ceramics) and support production route variants (e.g., DRI/EAF vs BF/BOF).</li>
+            <li><strong>Supply chain integration:</strong> Allow importers to link to supplier installations and pull
+                verified SEE data directly into an importer-facing dashboard.</li>
+        </ol>
+
+        <h3>If the Hypothesis is Invalidated ❌</h3>
+        <p>The browser-only model hits a wall → pivot the architecture:</p>
+        <ol>
+            <li><strong>Data scale:</strong> If <code>cbamDefaultValues.js</code> (currently 3.2MB) grows too large for
+                browser memory, move to server-side lookup.</li>
+            <li><strong>Multi-user limits:</strong> If real-world usage requires concurrent editing or shared
+                installations, the single-player SQLite model must be replaced immediately.</li>
+            <li><strong>Regulatory complexity:</strong> If export formats require server-side PDF/XML generation or
+                digital signatures, add a lightweight API layer.</li>
+        </ol>
+
+        <p style="margin-top: 3rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
+            Generated from PROJECT_HANDOFF.md source — Carbon Ledger MRV
+        </p>
+    </div>
+</body>
+
+</html>

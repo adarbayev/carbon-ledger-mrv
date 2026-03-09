@@ -821,16 +821,8 @@ function syncToDAL(action, state) {
                 break;
             }
             case 'UPDATE_PRECURSOR': {
-                const { productId, precursorId, field, value } = action.payload;
-                const prod = state.products.find(p => p.id === productId);
-                const prec = (prod?.precursors || []).find(pc => pc.id === precursorId);
-                if (prec) {
-                    const updatedPrec = {
-                        ...prec,
-                        [field]: ['mass', 'see'].includes(field) ? (parseFloat(value) || 0) : value
-                    };
-                    DAL.savePrecursor(updatedPrec);
-                }
+                const { precursorId, field, value } = action.payload;
+                DAL.updatePrecursorField(precursorId, field, value);
                 break;
             }
             case 'DELETE_PRECURSOR': {

@@ -433,6 +433,23 @@ export function savePrecursor(data) {
     return data.id;
 }
 
+export function updatePrecursorField(precursorId, field, value) {
+    const columnMap = {
+        name: 'name',
+        cnCode: 'cn_code',
+        mass: 'mass',
+        see: 'see',
+        sourceType: 'source_type',
+        sourceInstallationId: 'source_installation_id',
+        sourceProductId: 'source_product_id',
+    };
+    const column = columnMap[field];
+    if (!column) return;
+    const sqlValue = ['mass', 'see'].includes(field) ? (parseFloat(value) || 0) : value;
+    execute(`UPDATE precursors SET ${column} = ? WHERE id = ?`, [sqlValue, precursorId]);
+    logAudit({ entityType: 'precursor', entityId: precursorId, action: 'UPDATE', fieldName: column });
+}
+
 export function deletePrecursor(id) {
     execute('DELETE FROM precursors WHERE id = ?', [id]);
     logAudit({ entityType: 'precursor', entityId: id, action: 'DELETE' });
